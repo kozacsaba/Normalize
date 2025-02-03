@@ -1,17 +1,20 @@
+# Main ########################################################################
+
 cmake_minimum_required(VERSION 3.22)
 
 project(Normalize VERSION 0.1)
 
 set(CMAKE_CXX_STANDARD 20)
 
+# JUCE ########################################################################
+
 add_subdirectory(submodules/juce)
-add_subdirectory(submodules/googletest)
 
 # juce_set_vst2_sdk_path(...)
 
 juce_add_gui_app(Normalize
-    # ICON_BIG ...                      # ICON_* arguments specify a path to an image file to use as an icon
-    # ICON_SMALL ...
+    # ICON_BIG ...                      # ICON_* arguments specify a path to an
+    # ICON_SMALL ...                    #   image file to use as an icon
     COMPANY_NAME "Csaba Koza"           # Specify the name of the app's author
     PRODUCT_NAME "Audio File Normalizer App")
 
@@ -41,3 +44,23 @@ target_link_libraries(Normalize PRIVATE
     juce::juce_audio_formats
     juce::juce_gui_extra
 )
+
+# Google Test #################################################################
+
+add_subdirectory(submodules/googletest)
+
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+enable_testing()
+
+add_executable(
+    TestBench
+    tests/TestRunner.cc
+)
+
+target_link_libraries(TestBench
+    GTest::gtest
+)
+
+include(GoogleTest)
+gtest_discover_tests(TestBench)
