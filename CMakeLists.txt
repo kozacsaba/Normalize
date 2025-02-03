@@ -58,9 +58,9 @@ add_executable(
     tests/TestRunner.cc
 )
 
-target_link_libraries(TestBench
-    GTest::gtest
-)
+add_dependencies(TestBench Normalize)
+
+target_link_libraries(TestBench GTest::gtest)
 
 include(GoogleTest)
 gtest_discover_tests(TestBench)
