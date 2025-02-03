@@ -17,7 +17,15 @@ juce_add_gui_app(Normalize
 
 target_sources(Normalize PRIVATE
     src/Main.cpp
-    src/MainComponent.cpp)
+    src/MainComponent.cpp
+    
+    src/processor/MainProcessor.cpp
+    src/processor/LKFSProcessor.cpp
+    
+    src/gui/FileList.cpp
+    
+    src/util/Logger.cpp
+    )
 
 target_compile_definitions(Normalize PRIVATE
     JUCE_WEB_BROWSER=0  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_gui_app` call
