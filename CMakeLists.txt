@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.22)
 project(Normalize VERSION 0.1)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # JUCE ########################################################################
 
@@ -32,7 +33,7 @@ target_sources(Normalize PRIVATE
     src/gui/FileList.cpp
     
     src/util/Logger.cpp
-    src/util/Defines.h
+    src/util/CircularArray.h
     )
 
 target_compile_definitions(Normalize PRIVATE
@@ -40,6 +41,9 @@ target_compile_definitions(Normalize PRIVATE
     JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_gui_app` call
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:Normalize,JUCE_PRODUCT_NAME>"
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Normalize,JUCE_VERSION>")
+
+target_compile_features(Normalize PUBLIC cxx_std_20)
+
 
 # juce_add_binary_data(GuiAppData SOURCES ...)
 

@@ -66,7 +66,7 @@ namespace norm
         jassert(fs > 0);
 
         // high-shelf coeffs ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        float Khs = tan(pi * Fhs / (float)fs);
+        float Khs = tan(defines::pi * Fhs / (float)fs);
         float khs2 = Khs * Khs;
         float a0 = 1.0f + Khs / Qhs + khs2;
 
@@ -77,7 +77,7 @@ namespace norm
         HS_A[1] = (1.0f - Khs / Qhs + khs2) / a0;
 
         // high-pass coeffs ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        float Khp = tan(pi * Fhp / (float)fs);
+        float Khp = tan(defines::pi * Fhp / (float)fs);
         float khp2 = Khp * Khp;
 
         HP_B[0] = 1.f;
@@ -89,7 +89,7 @@ namespace norm
         // attenuation @ 997Hz ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         using c = std::complex<float>;
         c j(0.f, 1.f);
-        c z = std::exp(c(997.f * 2.f * pi / (float)fs) * -j);
+        c z = std::exp(c(997.f * 2.f * defines::pi / (float)fs) * -j);
 
         c h =  c(HS_B[0], 0) * z * z + c(HS_B[1], 0) * z + c(HS_B[2], 0);
         h  *= (c(HP_B[0], 0) * z * z + c(HP_B[1], 0) * z + c(HP_B[2], 0));
