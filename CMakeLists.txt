@@ -18,16 +18,21 @@ juce_add_gui_app(Normalize
     COMPANY_NAME "Csaba Koza"           # Specify the name of the app's author
     PRODUCT_NAME "Audio File Normalizer App")
 
+target_include_directories(Normalize PRIVATE 
+                           ${CMAKE_SOURCE_DIR}/src)
+
 target_sources(Normalize PRIVATE
     src/Main.cpp
     src/MainComponent.cpp
     
     src/processor/MainProcessor.cpp
     src/processor/LKFSProcessor.cpp
+    src/processor/FilterProcessor.cpp
     
     src/gui/FileList.cpp
     
     src/util/Logger.cpp
+    src/util/Defines.h
     )
 
 target_compile_definitions(Normalize PRIVATE
