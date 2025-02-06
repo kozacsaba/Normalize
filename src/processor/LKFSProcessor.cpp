@@ -25,13 +25,13 @@ void LKFS::reset(float sampleRate, int numberOfChannels)
 }
 void LKFS::processNext100ms(const juce::AudioBuffer<float>& buffer)
 {
-    EXPECT_OR_RETURN ((mState == State::invalid), 
+    EXPECT_OR_RETURN (mState == State::invalid,
                       void(), 
                       "You need to reset the LKFS Processor before use.");
 
     int incomingBufferSize = buffer.getNumSamples();
 
-    EXPECT_OR_THROW ((incomingBufferSize != mExpectedBufferSize),
+    EXPECT_OR_THROW (incomingBufferSize != mExpectedBufferSize,
                      std::exception{},
                      "Wrong buffer size fed into LKFS unit");
 
@@ -68,7 +68,7 @@ void LKFS::processNext100ms(const juce::AudioBuffer<float>& buffer)
 }
 float LKFS::getIntegratedLoudness()
 {
-    EXPECT_OR_THROW ((mState == State::in_use && mBlockLoudnessValues.size() > 3),
+    EXPECT_OR_THROW (mState == State::in_use && mBlockLoudnessValues.size() > 3,
                      std::exception{},
                      "You need to feed the processor some audio before querying loudness");
 
@@ -113,7 +113,7 @@ float LKFS::getSamplePeak()
 
 void LKFS::setSampleRate(float sampleRate)
 {
-    EXPECT_OR_THROW ((sampleRate > 0),
+    EXPECT_OR_THROW (sampleRate > 0,
                      std::exception{},
                      "Sample Rate is {}", sampleRate);
 
@@ -130,8 +130,8 @@ void LKFS::setSampleRate(float sampleRate)
 }
 void LKFS::setNumberOfChannels(int numberOfChannels)
 {
-    EXPECT_OR_THROW ((numberOfChannels > 0), 
-                     std::exception{}, 
+    EXPECT_OR_THROW (numberOfChannels > 0,
+                     std::exception{},
                      "Number of channels is {}", numberOfChannels);
 
     if (chnum != numberOfChannels)

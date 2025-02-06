@@ -21,7 +21,7 @@
 
 // Expect condition and return if false. Log msg provided in __VA_ARGS__
 #define EXPECT_OR_RETURN(COND, VALUE, MSG, ...) ENFORCE_SEMICOLON(              \
-    if (!COND)                                                                  \
+    if (!(COND))                                                                \
     {                                                                           \
         MY_LOG_WARNING (MSG, __VA_ARGS__);                                      \
         return VALUE;                                                           \
@@ -29,7 +29,7 @@
 
 // Expect condition and throw if false. Log msg provided in __VA_ARGS__
 #define EXPECT_OR_THROW(COND, EXCEPT, MSG, ...) ENFORCE_SEMICOLON(              \
-    if (!COND)                                                                  \
+    if (!(COND))                                                                \
     {                                                                           \
         MY_LOG_WARNING (MSG, __VA_ARGS__);                                      \
         throw EXCEPT;                                                           \
