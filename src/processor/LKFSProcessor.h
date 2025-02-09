@@ -35,15 +35,15 @@ private:
 
     int chnum = 0;
     double fs = -1;
-    float mAttenuation = 0;
-    float mAbsoluteGate = 0;
+    float mLinearAttenuation = 0;
+    const float mAbsoluteGate = -70;
     int mExpectedBufferSize = 0;
     float mSamplePeak = 0;
 
     State mState;
 
     CircularArray<float> mCircularBuffer;
-    std::vector<float> mBlockLoudnessValues;
+    std::vector<float> mBlockLoudnessValuesLin;
     std::unique_ptr<KWFilter[]> mFilters; 
 };
 

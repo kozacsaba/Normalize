@@ -17,7 +17,7 @@ class CircularArray
 public:
     CircularArray(int size)
         : mSize(size > 1 ? size : 1)
-        , mData(std::make_unique<type[]>(mSize))
+        , mData(std::make_unique<type[]>((size_t)mSize))
         , mIndex(0)
     {
     }
@@ -41,7 +41,7 @@ public:
 
     void push(type element)
     {
-        mData[mIndex] = element;
+        mData[(size_t)mIndex] = element;
         mIndex %= mSize;
     }
     type pushAndPop(type element)
@@ -80,7 +80,7 @@ public:
         type sum = (type)0;
         for (int i = 0; i < mSize; i++)
         {
-            sum += mData[i];
+            sum += mData[(size_t)i];
         }
         return sum;
     }
@@ -88,7 +88,7 @@ public:
     {
         for (int i = 0; i < mSize; i++)
         {
-            mData[i] = (type)(0);
+            mData[(size_t)i] = (type)(0);
         }
         mIndex = 0;
     }

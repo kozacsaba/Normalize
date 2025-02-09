@@ -14,6 +14,7 @@
 
 // include headers containing the unit tests here
 #include "HelloTest.h"
+#include "LKFSTest.h"
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);

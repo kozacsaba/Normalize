@@ -23,7 +23,7 @@ public:
 
     void reset(float sampleRate);
     void process(float* data, int size);
-    static float getAttenuation() { return att; }
+    static float getLinearAttenuation() { return att; }
 
 private:
     static void recalibrate();
