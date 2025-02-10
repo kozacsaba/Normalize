@@ -21,10 +21,10 @@ protected:
 
         mFileHandler.openFile(file);
         double sampleRate = mFileHandler.getSampleRate();
-        int numberOfChannels = mFileHandler.getNumberOfChannels();
+        int numberOfChannels = (int)(mFileHandler.getNumberOfChannels());
         int samplesPerBlock = (int)(sampleRate * 0.1);
 
-        mLKFSProcessor.reset(sampleRate, numberOfChannels);
+        mLKFSProcessor.reset((float)sampleRate, numberOfChannels);
         juce::AudioBuffer<float> buffer(numberOfChannels, samplesPerBlock);
 
         while (mFileHandler.readNextBlock(&buffer))

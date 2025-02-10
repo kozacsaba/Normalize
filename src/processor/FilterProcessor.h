@@ -7,6 +7,8 @@
 #include <cmath>
 #include <numbers>
 
+class FilterTest;
+
 namespace norm
 {
 
@@ -50,6 +52,9 @@ private:
     // High-Pass Filter Constants
     inline static float Fhp = 38.13547f;
     inline static float Qhp = 0.50032705f;
+
+    // Test Fixture for KWFilter Unit Test
+    friend FilterTest;
 };
 
 } // namespace norm

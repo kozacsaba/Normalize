@@ -121,10 +121,10 @@ void LKFS::setSampleRate(float sampleRate)
                      std::exception{},
                      "Sample Rate is {}", sampleRate);
 
-    fs = sampleRate;
+    fs = (double)sampleRate;
     for (int ch = 0; ch < chnum; ch++)
     {
-        mFilters[(size_t)ch].reset(fs);
+        mFilters[(size_t)ch].reset((float)fs);
     }
 
     mExpectedBufferSize = (int)(fs / 10);

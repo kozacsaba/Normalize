@@ -1,3 +1,5 @@
+#pragma once
+
 /*  Constant-at-construction sized circular buffer.
 */
 
@@ -11,13 +13,13 @@ template <typename T>
 concept Number = std::is_integral_v<T> ||
                  std::is_floating_point_v<T>;
 
-template<Number type>
+template<Number type = float>
 class CircularArray
 {
 public:
     CircularArray(int size)
-        : mSize(size > 1 ? size : 1)
-        , mData(std::make_unique<type[]>((size_t)mSize))
+        : mSize(size > 1 ? (size_t)size : 1)
+        , mData(std::make_unique<type[]>(mSize))
         , mIndex(0)
     {
     }
@@ -32,7 +34,7 @@ public:
         , mData(std::make_unique<type[]>(mSize))
         , mIndex(other.mIndex)
     {
-        for (int i = 0; i < mSize ; i++)
+        for (size_t i = 0; i < mSize ; i++)
         {
             mData[i] = other.mData[i];
         }
@@ -41,35 +43,36 @@ public:
 
     void push(type element)
     {
-        mData[(size_t)mIndex] = element;
+        mData[mIndex++] = element;
         mIndex %= mSize;
     }
     type pushAndPop(type element)
     {
         type pop = mData[mIndex];
-        mData[mIndex] = element;
+        mData[mIndex++] = element;
         mIndex %= mSize;
         return pop;
     }
-    type operator[](int index)
+    type operator[](size_t index)
     {
-        int virtualIndex = mIndex + index;
+        ptrdiff_t virtualIndex = mIndex + index;
         virtualIndex %= mSize;
         return mData[virtualIndex];
     }
-    const type operator[](int index) const
+    const type operator[](size_t index) const
     {
-        type element = (*this)[index];
-        return element;
+        ptrdiff_t virtualIndex = mIndex + index;
+        virtualIndex %= mSize;
+        return mData[virtualIndex];
     }
     const type* accesUnordered() const
     {
         return mData.get();
     }
-    std::shared_ptr<type> getArray() const
+    std::shared_ptr<type[]> getArray() const
     {
         auto array = std::make_shared<type[]>(mSize);
-        for (int i = 0; i < mSize ; i++)
+        for (size_t i = 0; i < mSize ; i++)
         {
             array[i] = (*this)[i];
         }
@@ -78,25 +81,25 @@ public:
     type getSum() const
     {
         type sum = (type)0;
-        for (int i = 0; i < mSize; i++)
+        for (size_t i = 0; i < mSize; i++)
         {
-            sum += mData[(size_t)i];
+            sum += mData[i];
         }
         return sum;
     }
     void reset()
     {
-        for (int i = 0; i < mSize; i++)
+        for (size_t i = 0; i < mSize; i++)
         {
-            mData[(size_t)i] = (type)(0);
+            mData[i] = (type)(0);
         }
         mIndex = 0;
     }
 
 private:
-    const int mSize;
+    const size_t mSize;
     std::unique_ptr<type[]> mData;
-    int mIndex;
+    size_t mIndex;
 };
 
 } // namespace norm
