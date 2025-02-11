@@ -8,7 +8,7 @@ namespace norm
     {
         mAudioFormatManager.registerBasicFormats();
     }
-    FileHandler::~FileHandler() {};
+    FileHandler::~FileHandler() {}
 
     bool FileHandler::openFile(juce::File file)
     {
@@ -22,8 +22,8 @@ namespace norm
         
         mFileAttributes.length = mAudioReader->lengthInSamples;
         mFileAttributes.numberOfChannels = mAudioReader->numChannels;
-        mBuffer.setSize(mFileAttributes.numberOfChannels, 
-                        mFileAttributes.length);
+        mBuffer.setSize((int)mFileAttributes.numberOfChannels, 
+                        (int)mFileAttributes.length);
         mPlayhead = 0;
         mFileAttributes.sampleRate = mAudioReader->sampleRate;
         mSamplesPerBlock = (int)std::floor(mFileAttributes.sampleRate / 10.0);
@@ -52,18 +52,18 @@ namespace norm
 
         if (mPlayhead + mSamplesPerBlock > mFileAttributes.length) return false;
 
-        mAudioReader->read (buffer, 
-                            (int)mFileAttributes.numberOfChannels, 
-                            mPlayhead, 
-                            mSamplesPerBlock, 
-                            true, 
+        mAudioReader->read (buffer,
+                            0,
+                            mSamplesPerBlock,
+                            (int)mPlayhead,
+                            true,
                             true);
 
         for (unsigned int ch = 0; ch < mFileAttributes.numberOfChannels; ch++)
         {
             mBuffer.copyFrom ((int)ch, 
-                              mPlayhead, 
-                              buffer->getReadPointer(ch), 
+                              (int)mPlayhead, 
+                              buffer->getReadPointer((int)ch), 
                               mSamplesPerBlock);
         }
 
@@ -108,7 +108,7 @@ namespace norm
 
         writer->writeFromAudioSampleBuffer (mBuffer,
                                             0, 
-                                            mFileAttributes.length);
+                                            (int)mFileAttributes.length);
 
         mHasFileOpen = false;
     }

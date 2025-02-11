@@ -7,6 +7,9 @@
 #include <cmath>
 #include <numbers>
 
+// Test Fixture for unit testing
+class FilterTest;
+
 namespace norm
 {
 
@@ -21,9 +24,9 @@ public:
     KWFilter();
     ~KWFilter();
 
-    void reset(float sampleRate);
+    void reset(double sampleRate);
     void process(float* data, int size);
-    static float getAttenuation() { return att; }
+    static float getLinearAttenuation() { return att; }
 
 private:
     static void recalibrate();
@@ -50,6 +53,9 @@ private:
     // High-Pass Filter Constants
     inline static float Fhp = 38.13547f;
     inline static float Qhp = 0.50032705f;
+
+    // Test Fixture for KWFilter Unit Test
+    friend FilterTest;
 };
 
 } // namespace norm

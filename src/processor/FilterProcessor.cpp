@@ -7,7 +7,7 @@ namespace norm
     KWFilter::KWFilter() {}
     KWFilter::~KWFilter() {}
 
-    void KWFilter::reset(float sampleRate)
+    void KWFilter::reset(double sampleRate)
     {
         for (int i = 0; i < 4; i++)
             {
@@ -15,7 +15,10 @@ namespace norm
                 Mhs[i] = 0;
             }
 
-        if (fs != sampleRate)
+        // float comparison
+        const bool sampleRateActuallyChanged = 
+            std::fabs(fs - sampleRate) > 1.f;
+        if (sampleRateActuallyChanged)
         {
             fs = sampleRate;
             recalibrate();
@@ -96,7 +99,7 @@ namespace norm
         h  /= (c(1.0, 0)     * z * z + c(HS_A[0], 0) * z + c(HS_A[1], 0));
         h  /= (c(1.0, 0)     * z * z + c(HP_A[0], 0) * z + c(HP_A[1], 0));
 
-        att = 20.f * std::log10( std::abs(h) );
+        att = std::abs(h);
     }
 }
 

@@ -23,27 +23,27 @@ public:
     LKFS();
     ~LKFS();
 
-    void reset(float sampleRate, int numberOfChannels);
+    void reset(double sampleRate, int numberOfChannels);
     void processNext100ms(const juce::AudioBuffer<float>& buffer);
     // Returns integrated loudness in dB. Needs reset after this.
     float getIntegratedLoudness();
     float getSamplePeak();
 
 private:
-    void setSampleRate(float sampleRate);
+    void setSampleRate(double sampleRate);
     void setNumberOfChannels(int numberOfChannels);
 
     int chnum = 0;
     double fs = -1;
-    float mAttenuation = 0;
-    float mAbsoluteGate = 0;
+    float mLinearAttenuation = 0;
+    const float mAbsoluteGate = -70;
     int mExpectedBufferSize = 0;
     float mSamplePeak = 0;
 
     State mState;
 
     CircularArray<float> mCircularBuffer;
-    std::vector<float> mBlockLoudnessValues;
+    std::vector<float> mBlockEnergyValues;
     std::unique_ptr<KWFilter[]> mFilters; 
 };
 
