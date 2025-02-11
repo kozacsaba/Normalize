@@ -16,7 +16,7 @@
 #include "HelloTest.h"
 #include "FilterTest.h"
 #include "CircularTest.h"
-//#include "LKFSTest.h"
+#include "LKFSTest.h"
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);

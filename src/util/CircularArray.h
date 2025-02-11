@@ -55,15 +55,23 @@ public:
     }
     type operator[](size_t index)
     {
-        ptrdiff_t virtualIndex = mIndex + index;
+        size_t virtualIndex = mIndex + index;
         virtualIndex %= mSize;
         return mData[virtualIndex];
     }
     const type operator[](size_t index) const
     {
-        ptrdiff_t virtualIndex = mIndex + index;
+        size_t virtualIndex = mIndex + index;
         virtualIndex %= mSize;
         return mData[virtualIndex];
+    }
+    type operator[](ptrdiff_t index)
+    { 
+        return (*this)[(size_t) index];
+    }
+    const type operator[](ptrdiff_t index) const
+    {
+        return (*this)[(size_t) index];
     }
     const type* accesUnordered() const
     {
@@ -72,7 +80,7 @@ public:
     std::shared_ptr<type[]> getArray() const
     {
         auto array = std::make_shared<type[]>(mSize);
-        for (size_t i = 0; i < mSize ; i++)
+        for (ptrdiff_t i = 0; i < (ptrdiff_t)mSize ; i++)
         {
             array[i] = (*this)[i];
         }

@@ -7,6 +7,7 @@
 #include <cmath>
 #include <numbers>
 
+// Test Fixture for unit testing
 class FilterTest;
 
 namespace norm
@@ -23,7 +24,7 @@ public:
     KWFilter();
     ~KWFilter();
 
-    void reset(float sampleRate);
+    void reset(double sampleRate);
     void process(float* data, int size);
     static float getLinearAttenuation() { return att; }
 

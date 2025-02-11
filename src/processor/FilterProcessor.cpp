@@ -7,7 +7,7 @@ namespace norm
     KWFilter::KWFilter() {}
     KWFilter::~KWFilter() {}
 
-    void KWFilter::reset(float sampleRate)
+    void KWFilter::reset(double sampleRate)
     {
         for (int i = 0; i < 4; i++)
             {
@@ -15,7 +15,10 @@ namespace norm
                 Mhs[i] = 0;
             }
 
-        if (fs != sampleRate)
+        // float comparison
+        const bool sampleRateActuallyChanged = 
+            std::fabs(fs - sampleRate) > 1.f;
+        if (sampleRateActuallyChanged)
         {
             fs = sampleRate;
             recalibrate();

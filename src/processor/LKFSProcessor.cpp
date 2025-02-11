@@ -12,14 +12,14 @@ LKFS::LKFS()
 {}
 LKFS::~LKFS() {}
 
-void LKFS::reset(float sampleRate, int numberOfChannels)
+void LKFS::reset(double sampleRate, int numberOfChannels)
 {
     setNumberOfChannels(numberOfChannels);
     setSampleRate(sampleRate);
 
     mSamplePeak = 0;
 
-    mBlockLoudnessValuesLin.clear();
+    mBlockEnergyValues.clear();
     mCircularBuffer.reset();
 
     mState = State::ready;
@@ -43,7 +43,7 @@ void LKFS::processNext100ms(const juce::AudioBuffer<float>& buffer)
     float localMax = workBuffer.getMagnitude(0, mExpectedBufferSize);
     mSamplePeak = juce::jmax(mSamplePeak, localMax);
 
-    float blockValue = 0;
+    float blockEnergy = 0;
     for (int ch = 0; ch < workBuffer.getNumChannels(); ch++)
     {
         auto pChannelData = workBuffer.getWritePointer(ch);
@@ -51,18 +51,21 @@ void LKFS::processNext100ms(const juce::AudioBuffer<float>& buffer)
 
         for (int s = 0; s < workBuffer.getNumSamples(); s++)
         {
-            blockValue += (pChannelData[s] * pChannelData[s]);
+            blockEnergy += (pChannelData[s] * pChannelData[s]);
         }
     }
 
-    mCircularBuffer.push(blockValue);
-    float momentaryLin = mCircularBuffer.getSum();
-    momentaryLin = momentaryLin / 0.4f / (float)fs / mLinearAttenuation;
+    mCircularBuffer.push(blockEnergy);
+    float FrameSum = mCircularBuffer.getSum();
+    float numSamplesInFrame = (float)fs * 0.4f;
+    float FilterEffetOnEnergy = mLinearAttenuation * mLinearAttenuation;
+
+    float momentaryLin = FrameSum / numSamplesInFrame / FilterEffetOnEnergy;
     float momentaryDB = 10.f * std::log10(momentaryLin);
 
     if (momentaryDB > mAbsoluteGate)
     {
-        mBlockLoudnessValuesLin.emplace_back(momentaryLin);
+        mBlockEnergyValues.emplace_back(momentaryLin);
     }
 
     mState = State::in_use;
@@ -70,7 +73,7 @@ void LKFS::processNext100ms(const juce::AudioBuffer<float>& buffer)
 float LKFS::getIntegratedLoudness()
 {
     bool startedUsing = mState == State::in_use;
-    bool enoughData = mBlockLoudnessValuesLin.size() > 3;
+    bool enoughData = mBlockEnergyValues.size() > 3;
 
     EXPECT_OR_THROW (startedUsing && enoughData,
                      std::exception{},
@@ -80,33 +83,34 @@ float LKFS::getIntegratedLoudness()
     // according to ITU-R BS.1770, the first window measured should be one
     // completely filled with data. In case of 75% overlap, that window is the
     // 4th one.
-    mBlockLoudnessValuesLin.erase (mBlockLoudnessValuesLin.begin(), 
-                                   mBlockLoudnessValuesLin.begin() + 2);
+    mBlockEnergyValues.erase (mBlockEnergyValues.begin(), 
+                                   mBlockEnergyValues.begin() + 2);
 
-    float blockSumLin = 0;
-    for (const auto& blockLoudness : mBlockLoudnessValuesLin)
+    float blockEnergySum = 0;
+    for (const auto& blockEnergy : mBlockEnergyValues)
     {
-        blockSumLin += blockLoudness;
+        blockEnergySum += blockEnergy;
     }
-    float blockValueAverage = blockSumLin / (float)mBlockLoudnessValuesLin.size();
-    float blockAverageDB = 10.0f * log10(blockValueAverage);
+    float blockEnergyAverage = blockEnergySum / (float)mBlockEnergyValues.size();
+    float blockAverageDB = 10.0f * log10(blockEnergyAverage);
 
-    float relativeGate = juce::jmax(blockAverageDB, -70.0f) - 10;
+    float relativeGate = juce::jmax(blockAverageDB, -70.0f) - 10.f;
+    float relativeGateLin = pow(10.f, relativeGate / 10.f);
     float gatedSum = 0;
-    int gatedValueCount = 0;
+    int gatedCount = 0;
 
-    for (const auto& blockLoudness : mBlockLoudnessValuesLin)
+    for (const auto& blockEnergy : mBlockEnergyValues)
     {
-        if (blockLoudness > relativeGate)
+        if (blockEnergy > relativeGateLin)
         {
-            gatedSum += blockLoudness;
-            gatedValueCount++;
+            gatedSum += blockEnergy;
+            gatedCount++;
         }
     }
 
     mState = State::invalid;
 
-    float gatedAverage = gatedSum / (float)gatedValueCount;
+    float gatedAverage = gatedSum / (float)gatedCount;
     float integratedLoudness = 10.f * log10(gatedAverage);
     return integratedLoudness;
 }
@@ -115,19 +119,19 @@ float LKFS::getSamplePeak()
     return mSamplePeak;
 }
 
-void LKFS::setSampleRate(float sampleRate)
+void LKFS::setSampleRate(double sampleRate)
 {
-    EXPECT_OR_THROW (sampleRate > 0,
+    EXPECT_OR_THROW (sampleRate > 0.0,
                      std::exception{},
                      "Sample Rate is {}", sampleRate);
 
-    fs = (double)sampleRate;
+    fs = sampleRate;
     for (int ch = 0; ch < chnum; ch++)
     {
-        mFilters[(size_t)ch].reset((float)fs);
+        mFilters[(size_t)ch].reset(fs);
     }
 
-    mExpectedBufferSize = (int)(fs / 10);
+    mExpectedBufferSize = (int)(fs / 10.0);
 
     mLinearAttenuation = KWFilter::getLinearAttenuation();
 }
@@ -140,7 +144,7 @@ void LKFS::setNumberOfChannels(int numberOfChannels)
     if (chnum != numberOfChannels)
     {
         chnum = numberOfChannels;
-        mFilters = std::make_unique<KWFilter[]>(chnum);
+        mFilters = std::make_unique<KWFilter[]>((size_t)chnum);
     }
 }
 
