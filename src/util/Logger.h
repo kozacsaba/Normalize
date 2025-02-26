@@ -15,6 +15,15 @@
 
 namespace norm
 {
+    template<typename t>
+    concept Loggable = 
+        std::is_arithmetic_v<t> ||
+        std::is_same_v<t, juce::String> ||
+        std::is_same_v<t, std::string> ||
+        std::is_same_v<t, std::string_view> ||
+        std::is_same_v<t, std::nullptr_t>;
+
+
     class Logger : juce::ThreadPool
     {
     private:
@@ -25,6 +34,11 @@ namespace norm
         Logger(const Logger&) = delete;
         Logger(Logger&&) = delete;
         Logger& operator=(const Logger&) = delete;
+        ~Logger()
+        {
+            StdLogger* stdLogger = StdLogger::getInstance();
+            removeListener(stdLogger);
+        }
         static Logger* getInstance()
         {
             if(instance == nullptr)
@@ -32,14 +46,13 @@ namespace norm
                 auto options = juce::ThreadPoolOptions {}
                     .withThreadName(LOG_THREAD_NAME)
                     .withNumberOfThreads(1);
-                instance = std::make_unique<Logger>(options);
+                instance = std::unique_ptr<Logger>(new Logger(options));
             }
             
             return instance.get();
         }
 
-        template<typename t, typename u, typename v>
-        // add concept restriction
+        template<Loggable t, Loggable u, Loggable v>
         void logMessage(std::string_view type, 
                         std::string_view msg, 
                         t arg1 = nullptr, 
@@ -82,17 +95,11 @@ namespace norm
         Logger(juce::ThreadPoolOptions options)
             : ThreadPool(options)
         {
-            StdLogger& stdLogger = StdLogger::getInstance();
-            addListener(&stdLogger);
-        }
-        ~Logger()
-        {
-            StdLogger& stdLogger = StdLogger::getInstance();
-            removeListener(&stdLogger);
+            StdLogger* stdLogger = StdLogger::getInstance();
+            addListener(stdLogger);
         }
 
-        template<typename t, typename u, typename v>
-        // extract parsing into string into a template funciton
+        template<Loggable t, Loggable u, Loggable v>
         void log_internal(std::string_view type, 
                           std::string_view msg, 
                           t arg1 = nullptr, 
@@ -100,20 +107,18 @@ namespace norm
                           v arg3 = nullptr)
         {
             juce::StringArray args;
-            // process args in a more elegant way
-            if (arg1 != nullptr)
+
+            if ( !std::is_same_v<t, std::nullptr_t> )
             {
-                args.add(juce::String(arg1));
-
-                if (arg2 != nullptr)
-                {
-                    args.add (juce::String(arg2));
-
-                    if (arg3 != nullptr)
-                    {
-                        args.add(juce::String(arg3));
-                    }
-                }
+                parseArg<t>(args, arg1);
+            }
+            if ( !std::is_same_v<u, std::nullptr_t> )
+            {
+                parseArg<u>(args, arg2);
+            }
+            if ( !std::is_same_v<v, std::nullptr_t> )
+            {
+                parseArg<v>(args, arg3);
             }
 
             juce::String log_message;
@@ -140,10 +145,47 @@ namespace norm
             latestLogString = log_message;
         }
 
-        template <type t>
-        juce::String parseArg(t arg)
+        template <Loggable t>
+        void parseArg(juce::StringArray& args, t arg)
         {
-            // make cases for string, int, double, float and idk what else
+            juce::ignoreUnused(arg);
+            args.add("Error-type");
+        }
+
+        template<>
+        void parseArg<int>(juce::StringArray& args, int arg)
+        {
+            args.add(juce::String(arg));
+        }
+
+        template<>
+        void parseArg<float>(juce::StringArray& args, float arg)
+        {
+            args.add(juce::String(arg));
+        }
+
+        template<>
+        void parseArg<double>(juce::StringArray& args, double arg)
+        {
+            args.add(juce::String(arg));
+        }
+
+        template<>
+        void parseArg<std::string>(juce::StringArray& args, std::string arg)
+        {
+            args.add(juce::String(arg));
+        }
+
+        template<>
+        void parseArg<std::string_view>(juce::StringArray& args, std::string_view arg)
+        {
+            args.add(juce::String(std::string(arg.data())));
+        }
+
+        template<>
+        void parseArg<juce::String>(juce::StringArray& args, juce::String arg)
+        {
+            args.add(arg);
         }
 
         inline static std::unique_ptr<Logger> instance = nullptr;
@@ -155,10 +197,14 @@ namespace norm
             StdLogger(const StdLogger&) = delete;
             StdLogger(StdLogger&&) = delete;
             StdLogger& operator=(const StdLogger&) = delete;
-            static StdLogger& getInstance()
+            static StdLogger* getInstance()
             {
-                static StdLogger instance;
-                return instance;
+                if (instance == nullptr)
+                {
+                    instance = std::unique_ptr<StdLogger>(new StdLogger);
+                }
+
+                return instance.get();
             }
     
             void valueChanged(juce::Value& value)
@@ -167,6 +213,7 @@ namespace norm
             }
     
         private:
+            inline static std::unique_ptr<StdLogger> instance = nullptr; 
             StdLogger() = default;
         };
     };
