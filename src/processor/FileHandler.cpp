@@ -30,9 +30,10 @@ namespace norm
         mSamplesPerBlock = (int)std::floor(mFileAttributes.sampleRate / 10.0);
 
         mFileAttributes.metadata = mAudioReader->metadataValues;
+
         juce::String loudnessMetadata = 
-            mFileAttributes.metadata.getValue(LoudnessTag, "Unset");
-        if (loudnessMetadata == "Unset") 
+            mFileAttributes.metadata.getValue(LoudnessTag, Unset_v);
+        if (loudnessMetadata == Unset_v) 
         { 
             mHasLoudnessMetadata = false;
         }
@@ -40,6 +41,18 @@ namespace norm
         {
             mHasLoudnessMetadata = true;
             mLoudness = loudnessMetadata.getFloatValue();
+        }
+
+        juce::String samplePeakMetadata =
+            mFileAttributes.metadata.getValue(SamplePeakTag, Unset_v);
+        if (samplePeakMetadata == Unset_v)
+        {
+            mHasSamplePeakMetadata = false;
+        }
+        else
+        {
+            mHasSamplePeakMetadata = true;
+            mPeak = samplePeakMetadata.getFloatValue();
         }
 
         mHasFileOpen = true;
@@ -79,15 +92,49 @@ namespace norm
 
         float linear_gain = juce::Decibels::decibelsToGain(gain);
         mBuffer.applyGain(linear_gain);
-        mLoudness *= gain;
+
+        mLoudness += gain;
         mFileAttributes.metadata.set(LoudnessTag, juce::String(mLoudness));
+
+        mPeak *= linear_gain;
+        mFileAttributes.metadata.set(SamplePeakTag, juce::String(mPeak));
+        mHasSamplePeakMetadata = true;
     }
+    
     void FileHandler::setLoundessMetadata(float loudness)
     {
         mLoudness = loudness;
         mFileAttributes.metadata.set(LoudnessTag, juce::String(mLoudness));
         mHasLoudnessMetadata = true;
     }
+    float FileHandler::getLoudnessMetadata() const
+    {
+        EXPECT_OR_THROW(
+            hasLoudnessMetadata(),
+            std::exception("No Loudness Metadata to return"),
+            "No Loudness Metadata is present"
+        );
+
+        return mLoudness;
+    }
+    
+    void FileHandler::setSamplePeakMetadata(float peak)
+    {
+        mPeak = peak;
+        mFileAttributes.metadata.set(SamplePeakTag, juce::String(peak));
+        mHasSamplePeakMetadata = true;
+    }
+    float FileHandler::getSamplePeakMetadata() const
+    {
+        EXPECT_OR_THROW(
+            hasSamplePeakMetadata(),
+            std::exception("No Loudness Metadata to return"),
+            "No Loudness Metadata is present"
+        );
+
+        return mPeak;
+    }
+    
     void FileHandler::writeFile()
     {
         EXPECT_OR_RETURN (mHasLoudnessMetadata && mHasFileOpen,

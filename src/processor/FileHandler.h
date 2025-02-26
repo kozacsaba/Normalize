@@ -18,6 +18,8 @@ class FileHandler
 {
 public:
     inline static const char LoudnessTag[] = "LKFS";
+    inline static const char SamplePeakTag[] = "PEAK";
+    inline static const char Unset_v[] = "Unset";
 
 public:
     FileHandler();
@@ -28,10 +30,16 @@ public:
     void applyGainDecibel(float gain);
     void writeFile();
 
-    bool hasLoudnessMetadata() { return mHasLoudnessMetadata; }
+    bool hasLoudnessMetadata() const { return mHasLoudnessMetadata; }
     void setLoundessMetadata(float loudness);
-    unsigned int getNumberOfChannels() { return mFileAttributes.numberOfChannels; }
-    double getSampleRate() { return mFileAttributes.sampleRate; }
+    float getLoudnessMetadata() const;
+
+    bool hasSamplePeakMetadata() const { return mHasSamplePeakMetadata; }
+    void setSamplePeakMetadata(float peak);
+    float getSamplePeakMetadata() const;
+
+    unsigned int getNumberOfChannels() const { return mFileAttributes.numberOfChannels; }
+    double getSampleRate() const { return mFileAttributes.sampleRate; }
 
 private:
     juce::AudioFormatManager mAudioFormatManager;
@@ -50,7 +58,9 @@ private:
     } mFileAttributes;
 
     bool mHasLoudnessMetadata = false;
+    bool mHasSamplePeakMetadata = false;
     float mLoudness = 0;
+    float mPeak = 0;
     int mSamplesPerBlock = 0;
 
     bool mHasFileOpen = false;
