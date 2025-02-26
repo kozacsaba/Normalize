@@ -20,7 +20,7 @@ namespace norm
         std::is_arithmetic_v<t> ||
         std::is_same_v<t, juce::String> ||
         std::is_same_v<t, std::string> ||
-        std::is_same_v<t, std::string_view> ||
+        std::is_same_v<t, const char*> ||
         std::is_same_v<t, std::nullptr_t>;
 
 
@@ -52,9 +52,11 @@ namespace norm
             return instance.get();
         }
 
-        template<Loggable t, Loggable u, Loggable v>
-        void logMessage(std::string_view type, 
-                        std::string_view msg, 
+        template<Loggable t = nullptr_t, 
+                 Loggable u = nullptr_t, 
+                 Loggable v = nullptr_t>
+        void logMessage(const char* type, 
+                        const char* msg, 
                         t arg1 = nullptr, 
                         u arg2 = nullptr, 
                         v arg3 = nullptr)
@@ -74,8 +76,9 @@ namespace norm
             }
             catch (std::exception& e)
             {
-                juce::String err_msg = "Error: Could not process log message:\n";
-                err_msg += juce::String(msg.data()) + "\n";
+                juce::String err_msg = 
+                    "Error: Could not process log message:\n";
+                err_msg += juce::String(msg) + "\n";
                 err_msg += e.what();
 
                 latestLogString = err_msg;
@@ -100,8 +103,8 @@ namespace norm
         }
 
         template<Loggable t, Loggable u, Loggable v>
-        void log_internal(std::string_view type, 
-                          std::string_view msg, 
+        void log_internal(const char* type, 
+                          const char* msg, 
                           t arg1 = nullptr, 
                           u arg2 = nullptr, 
                           v arg3 = nullptr)
@@ -122,8 +125,8 @@ namespace norm
             }
 
             juce::String log_message;
-            auto raw_message = juce::String(type.data());
-            raw_message += juce::String(msg.data());
+            auto raw_message = juce::String(type);
+            raw_message += juce::String(msg);
             for (int i = 0; i < args.size(); i++)
             {
                 int parseIndex = raw_message.indexOf("{}");
@@ -161,13 +164,13 @@ namespace norm
         template<>
         void parseArg<float>(juce::StringArray& args, float arg)
         {
-            args.add(juce::String(arg));
+            args.add(juce::String(arg, 4, false));
         }
 
         template<>
         void parseArg<double>(juce::StringArray& args, double arg)
         {
-            args.add(juce::String(arg));
+            args.add(juce::String(arg, 4, false));
         }
 
         template<>
@@ -177,9 +180,9 @@ namespace norm
         }
 
         template<>
-        void parseArg<std::string_view>(juce::StringArray& args, std::string_view arg)
+        void parseArg<const char*>(juce::StringArray& args, const char* arg)
         {
-            args.add(juce::String(std::string(arg.data())));
+            args.add(juce::String(arg));
         }
 
         template<>
@@ -190,6 +193,16 @@ namespace norm
 
         inline static std::unique_ptr<Logger> instance = nullptr;
         juce::Value latestLogString;
+
+    public:
+        void waitForLogsToFinish()
+        {
+            int jobsLeft = 1;
+            while(jobsLeft != 0)
+            {
+                jobsLeft = getNumJobs();
+            }
+        }
 
         class StdLogger : public juce::Value::Listener
         {
@@ -209,12 +222,21 @@ namespace norm
     
             void valueChanged(juce::Value& value)
             {
-                std::cerr << value.toString() << std::endl;
+                if ( !bypassed )
+                {
+                    std::cerr << value.toString() << std::endl;
+                }
             }
-    
+            void setBypassed(bool shouldBeBypassed)
+            {
+                bypassed = shouldBeBypassed;
+            }
+            bool isBypassed() const { return bypassed; }
+
         private:
-            inline static std::unique_ptr<StdLogger> instance = nullptr; 
+            inline static std::unique_ptr<StdLogger> instance = nullptr;
             StdLogger() = default;
+            bool bypassed = false;
         };
     };
 }
@@ -224,19 +246,28 @@ namespace norm
 #define ENFORCE_SEMICOLON(statement) do { statement } while (0)
 
 #define __LOG_NOARG(T, MSG)                                                     \
-    norm::Logger::getInstance()->logMessage(T, MSG, nullptr, nullptr, nullptr)  \
+    norm::Logger::getInstance()->logMessage(T, MSG)                             \
     
 #define __LOG_1ARG(T, MSG, ARG)                                                 \
-    norm::Logger::getInstance()->logMessage(T, MSG, ARG, nullptr, nullptr)      \
+    norm::Logger::getInstance()->logMessage(T, MSG, ARG)                        \
 
 #define __LOG_2ARG(T, MSG, ARG1, ARG2)                                          \
-    norm::Logger::getInstance()->logMessage(T, MSG, ARG1, ARG2, nullptr)        \
+    norm::Logger::getInstance()->logMessage(T, MSG, ARG1, ARG2)                 \
 
 #define __LOG_3ARG(T, MSG, ARG1, ARG2, ARG3)                                    \
         norm::Logger::getInstance()->logMessage(T, MSG, ARG1, ARG2, ARG3)       \
 
 #define __GET_LOGGER(T, MSG, OPT_ARG1, OPT_ARG2, OPT_ARG3, NAME, ...) NAME
-#define __LOG_MSG(T, ...) __GET_LOGGER(T, __VA_ARGS__, __LOG_3ARG, __LOG_2ARG, __LOG_1ARG, __LOG_NOARG) (T, __VA_ARGS__)
+#define __LOG_MSG(T, ...) __GET_LOGGER                                          \
+            (                                                                   \
+                T,                                                              \
+                __VA_ARGS__,                                                    \
+                __LOG_3ARG,                                                     \
+                __LOG_2ARG,                                                     \
+                __LOG_1ARG,                                                     \
+                __LOG_NOARG                                                     \
+            )                                                                   \
+            (T, __VA_ARGS__)                                                    \
 
 // Should be used when something could directly or indirectly cause a crash
 #if LOG_LEVEL > 0

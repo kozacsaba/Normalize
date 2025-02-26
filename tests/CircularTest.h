@@ -19,6 +19,8 @@ namespace
     }
 }
 
+//==============================================================================
+
 TEST(CircularTest, FillBuffer1)
 {
     const int size = 2;
@@ -230,9 +232,9 @@ TEST(CircularTest, OverIndexing)
     const ptrdiff_t overIndex2 = index2 + 2 * size;
     const ptrdiff_t overIndex3 = index3 + 42 * size;
 
-    EXPECT_FLOAT_EQ(buffer[index1], rnd[index1]);
-    EXPECT_FLOAT_EQ(buffer[index2], rnd[index2]);
-    EXPECT_FLOAT_EQ(buffer[index3], rnd[index3]);
+    EXPECT_FLOAT_EQ(buffer[overIndex1], rnd[index1]);
+    EXPECT_FLOAT_EQ(buffer[overIndex2], rnd[index2]);
+    EXPECT_FLOAT_EQ(buffer[overIndex3], rnd[index3]);
 }
 
 TEST(CircularTest, GetArray)
