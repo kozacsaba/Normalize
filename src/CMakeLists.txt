@@ -14,15 +14,12 @@ target_sources(Source PRIVATE
     processor/FileHandler.cpp
 
     gui/FileList.cpp
-
-    util/Logger.cpp
 )
 
 target_include_directories(Source 
     PUBLIC 
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${JUCE_SOURCE_DIR}/modules
-        ${GOOGLETEST_SOURCE_DIR}/googletest/include
 )
 
 # juce_add_binary_data(GuiAppData SOURCES ...)

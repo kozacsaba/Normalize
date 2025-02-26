@@ -28,7 +28,7 @@ void LKFS::processNext100ms(const juce::AudioBuffer<float>& buffer)
 {
     EXPECT_OR_RETURN (mState != State::invalid,
                       void(), 
-                      "You need to reset the LKFS Processor before use.");
+                      "You need to reset the LKFS Processor before use. {}");
 
     int incomingBufferSize = buffer.getNumSamples();
 

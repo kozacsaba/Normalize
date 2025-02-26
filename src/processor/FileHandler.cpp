@@ -14,6 +14,7 @@ namespace norm
     {
         mFile = file;
         mAudioReader.reset(mAudioFormatManager.createReaderFor(mFile));
+
         EXPECT_OR_RETURN (
             mAudioReader != nullptr,
             false, 

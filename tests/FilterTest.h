@@ -55,6 +55,8 @@ private:
     const float att = 0.691f;
 };
 
+//==============================================================================
+
 TEST_F(FilterTest, CoeffTest)
 {
     hsCoeffsTest();
