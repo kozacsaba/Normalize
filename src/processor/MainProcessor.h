@@ -13,53 +13,79 @@
 namespace norm
 {
 
+// TODO:
+/*
+    the three public utility funcitons: 
+    beginProcessing | resync | setRootDirectory
+    could all have a wrapper that actually starts executing them in a seperate
+    thread. possibly a simple thread, not a threadpool, because they should not
+    be ran in paralel. however, the file processing COULD run in paralel...
+    This topic probably needs to be a separate issue. but one thread could and 
+    should be done here
+
+    loudness measuring and normalising should all probably be a little more
+    separated, even into different deep-searching processes.
+*/
+
+
 class MainProcessor
 {
-    constexpr float eps = 0.01;
+    const float eps = 0.01;
 
 public:
     MainProcessor();
     MainProcessor(MainProcessor&&) = delete;
     MainProcessor(const MainProcessor&) = delete;
 
+    void abort() { mAbortFlag = true; }
+    void beginProcessing();
+    void resync();
+
+    void setRootDirectory(juce::File directory);
+
     juce::ValueTree getValueTree() const { return mRoot; }
 
     float getTargetLKFS() const 
     { 
-        return (float)mRoot[vt::tree::Settings][vt::settings::target_lkfs];
+        return (float)mRoot.getChildWithName(vt::Tree::settings)
+                            [vt::Settings::target_lkfs];
     }
     bool getShouldSearchRecursively() const
     {
-        return (bool)mRoot[vt::tree::Settings][vt::settings::recursive_search];
+        return (bool)mRoot.getChildWithName(vt::Tree::settings)
+                           [vt::Settings::recursive_search];
     }
     bool getShouldIgnoreLoudnessTag() const
     {
-        return (bool)mRoot[vt::tree::Settings]
-                          [vt::settings::ignore_loudness_tag];
+        return (bool)mRoot.getChildWithName(vt::Tree::settings)
+                           [vt::Settings::ignore_loudness_tag];
     }
     bool getShouldIgnoreSamplePeak() const
     {
-        return (bool)mRoot[vt::tree::Settings]
-                          [vt::settings::ignore_sample_peak];
+        return (bool)mRoot.getChildWithName(vt::Tree::settings)
+                           [vt::Settings::ignore_sample_peak];
     }
     bool getShouldFollowSymLinks() const 
     {
-        return (bool)mRoot[vt::tree::Settings]
-                          [vt::settings::follow_symlinks];
+        return (bool)mRoot.getChildWithName(vt::Tree::settings)
+                           [vt::Settings::follow_symlinks];
     }
 
 private:
-    void processFile(juce::File file);
-    void processDirectory(juce::File directory);
+    bool canProcessFile(juce::File file);
+    void parseFile(juce::File file, juce::ValueTree fileNode);
+    void parseDirectory(juce::File directory, juce::ValueTree folderNode);
+    int countAudioFiles() const;
+    int countFilesInFolderRecursively(juce::ValueTree folderNode) const;
 
-
-    juce::ValueTree mRoot;
+    void processFile(juce::ValueTree fileNode);
+    void processDirectory(juce::ValueTree directoryNode);
 
     FileHandler mFileHandler;
     LKFS mLoudnessProcessor;
+    juce::AudioFormatManager mTestManager;
 
-
-    
+    juce::ValueTree mRoot;
+    bool mAbortFlag;
 };
-
 }
