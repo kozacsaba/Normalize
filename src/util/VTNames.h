@@ -8,6 +8,7 @@ namespace norm::vt
 
     namespace Tree
     {
+        id root = "root";
         id settings = "settings";
         id interface = "interface";
         id directory = "directory";
@@ -26,12 +27,15 @@ namespace norm::vt
     {
         id progress_bar = "progress_bar";
         id current_file = "current_file";
+        id show_log = "show_log";
+        id is_processing = "is_processing";
+        id number_of_files = "number_of_files";
     }
 
     namespace Directory
     {
-        id folder;
-        id file;
+        id folder = "folder";
+        id file = "file";
 
         namespace Folder
         {
@@ -57,17 +61,20 @@ namespace norm::vt
 /*  
     root
     L.. settings
-    |   L.. target lkfs             [float]
-    |   L.. recursive search        [bool]
-    |   L.. ignore loudness tag     [bool]
-    |   L.. ignore sample peak      [bool]
-    |   L.. follow symlinks         [bool]
+    |   L.. target_lkfs             [float]
+    |   L.. recursive_search        [bool]
+    |   L.. ignore_loudness_tag     [bool]
+    |   L.. ignore_sample_peak      [bool]
+    |   L.. follow_symlinks         [bool]
     L.. interface
-    |   L.. progress bar %          [float]
-    |   L.. current file            [string]
+    |   L.. progress_bar %          [float]
+    |   L.. current_file            [string]
+    |   L.. is_processing           [bool]
+    |   L.. show_log                [bool]
+    |   L.. number_of_files         [int]
     L.. directory
         L.. <folder>
-            L.. <...>
+        |   L.. <...>
         L.. <file>
 */
 

@@ -14,6 +14,17 @@
 namespace norm
 {
 
+// TODO - cq/#17
+/*
+    Most of the functions of this class should be private, and only funcitonally
+    complete funcitons should be visible from the outside, to enforce
+    encapsulation. Anything that could leave this class in an incomplete state,
+    or a file in a half-processed state, should be a private function, not
+    accessible from the outside.
+    The process should also be separated into a measuring process and a gain
+    process, because they might need to be done separately.    
+*/
+
 class FileHandler
 {
 public:

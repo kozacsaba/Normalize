@@ -4,13 +4,22 @@
 
 using namespace norm;
 
-MainProcessor::MainProcessor()
+MainProcessor::MainProcessor(juce::ValueTree root)
+    : mRoot(root)
+    , mAbortFlag(false)
 {
     mTestManager.registerBasicFormats();
 }
 
 void MainProcessor::beginProcessing()
 {
+    mRoot.getChildWithName(vt::Tree::interface).setProperty
+    (
+        vt::Interface::is_processing,
+        true,
+        nullptr
+    );
+
     try
     {
         juce::ValueTree dirNode = mRoot.getChildWithName(vt::Tree::directory);
@@ -28,6 +37,12 @@ void MainProcessor::beginProcessing()
             "Error while processing files: {}",
             e.what()
         );
+
+        mRoot.getChildWithName(vt::Tree::interface).setProperty(
+            vt::Interface::show_log,
+            true,
+            nullptr
+        );
     }
     catch (std::exception& e)
     {
@@ -35,7 +50,20 @@ void MainProcessor::beginProcessing()
             "Unexpected error: {}",
             e.what()
         );
+
+        mRoot.getChildWithName(vt::Tree::interface).setProperty(
+            vt::Interface::show_log,
+            true,
+            nullptr
+        );
     }
+
+    mRoot.getChildWithName(vt::Tree::interface).setProperty
+    (
+        vt::Interface::is_processing,
+        false,
+        nullptr
+    );
 }
 void MainProcessor::resync()
 {
@@ -73,7 +101,7 @@ void MainProcessor::setRootDirectory(juce::File directory)
     {
         EXPECT_OR_RETURN(
             directory.isDirectory(),
-            void {},
+            void (),
             "Selected item is not a directory: {}",
             directory.getFullPathName()
         );
@@ -108,16 +136,19 @@ bool MainProcessor::canProcessFile(juce::File file)
     auto* format = mTestManager.findFormatForFileExtension(extension);
     if (format == nullptr) return false;
 
-    auto reader = std::make_unique<juce::AudioFormatReader>(
-        mTestManager.createReaderFor(file));
+    juce::AudioFormatReader* reader =
+        mTestManager.createReaderFor(file);
 
     if (reader == nullptr) return false;
+
+    delete reader;
+    return true;
 }
 void MainProcessor::parseFile(juce::File file, juce::ValueTree fileNode)
 {
     EXPECT_OR_RETURN(
         fileNode.getType() == vt::Directory::file,
-        void {},
+        void (),
         "ValueTree node provided is not a file node"
     );
 
@@ -207,13 +238,13 @@ void MainProcessor::parseDirectory(juce::File directory, juce::ValueTree folderN
 {
     EXPECT_OR_RETURN(
         folderNode.getType() == vt::Directory::folder,
-        void {},
+        void (),
         "ValueTree node provided is not a folder node"
     );
 
     EXPECT_OR_RETURN(
         directory.isDirectory(),
-        void {},
+        void (),
         "File provided is not a directory"
     );
 
@@ -267,6 +298,12 @@ int MainProcessor::countAudioFiles() const
     if(rootDir == juce::ValueTree() ) exc::MainProc::get::root_dir_unset();
 
     int numAudioFiles = countFilesInFolderRecursively(rootDir);
+    juce::ValueTree interface = mRoot.getChildWithName(vt::Tree::interface);
+    interface.setProperty(
+        vt::Interface::number_of_files,
+        numAudioFiles,
+        nullptr
+    );
     return numAudioFiles;
 }
 int MainProcessor::countFilesInFolderRecursively(juce::ValueTree folderNode) const
@@ -294,6 +331,8 @@ int MainProcessor::countFilesInFolderRecursively(juce::ValueTree folderNode) con
             fileCount += countFilesInFolderRecursively(child);
         }
     }
+
+    return fileCount;
 }
 
 void MainProcessor::processFile(juce::ValueTree fileNode)
@@ -302,7 +341,7 @@ void MainProcessor::processFile(juce::ValueTree fileNode)
 
     EXPECT_OR_RETURN(
         fileNode.getType() == vt::Directory::file,
-        void {},
+        void (),
         "Tried to process an item with type {} as a file. (skipped)",
         fileNode.getType().toString()
     );
@@ -311,17 +350,26 @@ void MainProcessor::processFile(juce::ValueTree fileNode)
 
     EXPECT_OR_RETURN(
         file.existsAsFile(),
-        void{},
+        void (),
         "File does not exist: {}. (skipped)",
         file.getFullPathName()
+    );
+
+    mRoot.getChildWithName(vt::Tree::interface).setProperty(
+        vt::Interface::current_file,
+        fileNode[vt::Directory::File::name],
+        nullptr
     );
 
     mFileHandler.openFile(file);
     float loudness = 0;
     float peak = 0;
+    const bool shouldIgnoreLoudnessTag = 
+        mRoot.getChildWithName(vt::Tree::settings)
+        [vt::Settings::ignore_loudness_tag];
 
     if (fileNode[vt::Directory::File::processed] &&
-        !getShouldIgnoreLoudnessTag() )
+        !shouldIgnoreLoudnessTag)
     {
         loudness = mFileHandler.getLoudnessMetadata();
         peak = mFileHandler.getSamplePeakMetadata();
@@ -344,8 +392,11 @@ void MainProcessor::processFile(juce::ValueTree fileNode)
         peak = mLoudnessProcessor.getSamplePeak();
     }
 
-    float diff = getTargetLKFS() - loudness;
-    float ratio = juce::Decibels::decibelsToGain(diff);
+    const float target = 
+        mRoot.getChildWithName(vt::Tree::settings)
+        [vt::Settings::target_lkfs]; 
+    const float diff = target - loudness;
+    const float ratio = juce::Decibels::decibelsToGain(diff);
 
     if ( ratio < 1.f + eps && ratio > 1.f - eps )
     {
@@ -367,7 +418,10 @@ void MainProcessor::processFile(juce::ValueTree fileNode)
         return;
     }
 
-    if (!getShouldIgnoreSamplePeak())
+    const bool shouldIgnoreSamplePeak =
+        mRoot.getChildWithName(vt::Tree::settings)
+        [vt::Settings::ignore_sample_peak];
+    if (!shouldIgnoreSamplePeak)
     {
         float wouldBePeak = peak * ratio;
         if (wouldBePeak > 1.f)
@@ -385,7 +439,7 @@ void MainProcessor::processFile(juce::ValueTree fileNode)
     );
     fileNode.setProperty(
         vt::Directory::File::loudness,
-        getTargetLKFS(),
+        target,
         nullptr
     );
     fileNode.setProperty(
@@ -403,7 +457,7 @@ void MainProcessor::processDirectory(juce::ValueTree directoryNode)
 
     EXPECT_OR_RETURN(
         directoryNode.getType() == vt::Directory::folder,
-        void {},
+        void (),
         "Tried to process an item with type {} as a folder. (skipped)",
         directoryNode.getType().toString()
     );
@@ -430,8 +484,3 @@ void MainProcessor::processDirectory(juce::ValueTree directoryNode)
         }
     }
 }
-
-
-
-
-

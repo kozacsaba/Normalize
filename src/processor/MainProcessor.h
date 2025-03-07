@@ -13,8 +13,9 @@
 namespace norm
 {
 
-// TODO:
+// TODO
 /*
+    f/#16
     the three public utility funcitons: 
     beginProcessing | resync | setRootDirectory
     could all have a wrapper that actually starts executing them in a seperate
@@ -23,17 +24,18 @@ namespace norm
     This topic probably needs to be a separate issue. but one thread could and 
     should be done here
 
+    cq/#17
     loudness measuring and normalising should all probably be a little more
-    separated, even into different deep-searching processes.
+    separated, even into different deep-searching processes. Most of the file-
+    level processing logic should be moved to the FileHandler class
 */
-
 
 class MainProcessor
 {
-    const float eps = 0.01;
+    const float eps = 0.01f;
 
 public:
-    MainProcessor();
+    MainProcessor(juce::ValueTree root);
     MainProcessor(MainProcessor&&) = delete;
     MainProcessor(const MainProcessor&) = delete;
 
@@ -44,32 +46,6 @@ public:
     void setRootDirectory(juce::File directory);
 
     juce::ValueTree getValueTree() const { return mRoot; }
-
-    float getTargetLKFS() const 
-    { 
-        return (float)mRoot.getChildWithName(vt::Tree::settings)
-                            [vt::Settings::target_lkfs];
-    }
-    bool getShouldSearchRecursively() const
-    {
-        return (bool)mRoot.getChildWithName(vt::Tree::settings)
-                           [vt::Settings::recursive_search];
-    }
-    bool getShouldIgnoreLoudnessTag() const
-    {
-        return (bool)mRoot.getChildWithName(vt::Tree::settings)
-                           [vt::Settings::ignore_loudness_tag];
-    }
-    bool getShouldIgnoreSamplePeak() const
-    {
-        return (bool)mRoot.getChildWithName(vt::Tree::settings)
-                           [vt::Settings::ignore_sample_peak];
-    }
-    bool getShouldFollowSymLinks() const 
-    {
-        return (bool)mRoot.getChildWithName(vt::Tree::settings)
-                           [vt::Settings::follow_symlinks];
-    }
 
 private:
     bool canProcessFile(juce::File file);

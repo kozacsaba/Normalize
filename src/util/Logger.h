@@ -16,6 +16,12 @@
 #include "util/Singleton.h"
 
 #ifndef LOG_LEVEL
+    /*
+        0: Logging is disabled.
+        1: Only errors are logged.
+        2: Errors and warnings are logged.
+        3: Errors, warnings and info are all logged.
+    */
     #define LOG_LEVEL 3
 #endif
 
