@@ -9,6 +9,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_data_structures/juce_data_structures.h>
 #include "util/VTNames.h"
+#include "util/Logger.h"
 #include "processor/MainProcessor.h"
 
 namespace norm
@@ -63,7 +64,7 @@ private:
 
 class LogPanel 
     : public juce::Component
-    , public juce::Value::Listener
+    , public norm::Logger::LogDestination
 {
 public:
     LogPanel();
@@ -71,7 +72,7 @@ public:
 
     void resized() override;
 
-    void valueChanged(juce::Value& value) override;
+    void log(juce::String msg) override;
 
 private:
     juce::TextEditor mLogDisplay;

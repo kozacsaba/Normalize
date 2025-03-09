@@ -1,5 +1,6 @@
 #include "processor/MainProcessor.h"
 #include "gui/MainComponent.h"
+#include "util/Logger.h"
 
 class NormalizeApplication final : public juce::JUCEApplication
 {

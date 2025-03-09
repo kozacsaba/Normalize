@@ -103,9 +103,8 @@ void LogPanel::resized()
     mLogDisplay.setBounds(getLocalBounds());
 }
 
-void LogPanel::valueChanged(juce::Value& value)
+void LogPanel::log(juce::String msg)
 {
-    juce::String msg = value.toString();
     mLogDisplay.insertTextAtCaret(msg);
 }
 
@@ -354,7 +353,9 @@ MainPanel::MainPanel (juce::ValueTree root,
     btnToggleView.setButtonText("Toggle View");
     btnToggleView.onClick = [this] { toggleViewClicked(); };
 
-    mRoot.getChildWithName(vt::Tree::interface).addListener(this);
+    juce::ValueTree Interface = mRoot.getChildWithName(vt::Tree::interface);
+    MY_LOG_INFO("Interface Tree is:\n", Interface.toXmlString());
+    Interface.addListener(this);
 }
 
 MainPanel::~MainPanel()
