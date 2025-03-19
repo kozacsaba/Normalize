@@ -14,6 +14,8 @@ target_sources(Source PRIVATE
     processor/FileHandler.cpp
 
     gui/FileList.cpp
+
+    util/Logger.cpp
 )
 
 target_include_directories(Source 

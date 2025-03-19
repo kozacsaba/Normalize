@@ -1,4 +1,5 @@
 #include "MainComponent.h"
+#include "util/Logger.h"
 
 class NormalizeApplication final : public juce::JUCEApplication
 {
@@ -20,6 +21,8 @@ public:
     void shutdown() override
     {
         mainWindow = nullptr;
+
+        norm::Logger::getInstance()->removaAllListeners();
     }
 
     void systemRequestedQuit() override

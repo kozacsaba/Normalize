@@ -13,6 +13,7 @@
 #include <gtest/gtest.h>
 
 // include headers containing the unit tests here
+#include "LoggerTest.h"
 #include "HelloTest.h"
 #include "FilterTest.h"
 #include "CircularTest.h"
