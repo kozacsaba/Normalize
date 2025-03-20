@@ -4,7 +4,7 @@
 */
 
 /*  Todo list:
-    * f/#9 : TODO-1 TODO-3
+    * f/#9 : TODO-1
     * not issued : TODO-5
 */
 
@@ -19,149 +19,128 @@
     #define LOG_LEVEL 3
 #endif
 
+#ifndef LOG_NUM_DECIMALS
+    #define LOG_NUM_DECIMALS 4
+#endif
+
 namespace norm
 {
-    template<typename t>
-    concept Loggable = 
-        std::is_arithmetic_v<t> ||
-        std::is_same_v<t, juce::String> ||
-        std::is_same_v<t, std::string> ||
-        std::is_same_v<t, const char*> ||
-        std::is_same_v<t, std::nullptr_t>;
+template<typename t>
+concept Loggable = 
+    std::is_arithmetic_v<t> ||
+    std::is_same_v<t, juce::String> ||
+    std::is_same_v<t, std::string> ||
+    std::is_same_v<t, const char*> ||
+    std::is_same_v<t, std::nullptr_t>;
 
-    class Logger
+class Logger
+{
+public:
+
+    /*  This class logs nowhere, its just a dummy to derive from.
+        Derived classes should implement the log() function.
+        Derived classes are recommended to derive from the Singleton class
+        as well, found in util/Singleton.h
+    */
+    class LogDestination
     {
     public:
+        virtual void log(juce::String msg) { juce::ignoreUnused(msg); }
 
-        /*  This class logs nowhere, its just a dummy to derive from.
-            Derived classes should implement the log() function.
-            Derived classes are recommended to derive from the Singleton class
-            as well, found in util/Singleton.h
-        */
-        class LogDestination
-        {
-        public:
-            virtual void log(juce::String msg) { juce::ignoreUnused(msg); }
+    protected:
+        LogDestination() = default;
+    };
 
-        protected:
-            LogDestination() = default;
-        };
+private:
 
-    public:
-        Logger(const Logger&) = delete;
-        Logger(Logger&&) = delete;
-        Logger& operator=(const Logger&) = delete;
-        ~Logger() noexcept(false);
-        static Logger* getInstance();
+    Logger() {}
 
-        template<Loggable t = nullptr_t, 
-                 Loggable u = nullptr_t, 
-                 Loggable v = nullptr_t>
-        inline void logMessage(const char* type, const char* msg, 
-                        t arg1 = nullptr, u arg2 = nullptr, v arg3 = nullptr)
-        {
-            try
-            {
-                log_internal(type, msg, arg1, arg2, arg3);
-            }
-            catch (std::exception& e)
-            {
-                juce::String err_msg = 
-                "Error: Could not process log message:\n";
-                err_msg += juce::String(msg) + "\n";
-                err_msg += e.what();
-        
-                broadcastMessage(err_msg);
-            }
-            //MARK: TODO-1
-            //when introducing custom exceptions, parse errors and other errors
-            // should be handled differently
-        }
+    void broadcastMessage(juce::String msg) const;
 
-        void addListener(LogDestination* listener);
-        void removeListener(LogDestination* listener);
-        void removaAllListeners();
+    inline static std::unique_ptr<Logger> instance = nullptr;
+    std::vector<LogDestination*> listeners;
 
-    private:
-        Logger() {}
+    static juce::String interpolate(juce::String raw_message, juce::StringArray args);
 
-        void broadcastMessage(juce::String msg) const;
-
-        inline static std::unique_ptr<Logger> instance = nullptr;
-        juce::Value latestLogString;
-
-        std::vector<LogDestination*> listeners;
-
-        template<Loggable t>
-        inline static void parseArg(juce::StringArray& args, t arg)
-        {
-            juce::ignoreUnused(arg);
-            args.add("Error-type");
-        }
-
-        template<Loggable t, Loggable u, Loggable v>
-        inline void log_internal(const char* type, const char* msg, 
-                          t arg1 = nullptr, u arg2 = nullptr, v arg3 = nullptr)
-        {
-        juce::StringArray args;
-    
-        if ( !std::is_same_v<t, std::nullptr_t> )
-        {
-            parseArg<t>(args, arg1);
-        }
-        if ( !std::is_same_v<u, std::nullptr_t> )
-        {
-            parseArg<u>(args, arg2);
-        }
-        if ( !std::is_same_v<v, std::nullptr_t> )
-        {
-            parseArg<v>(args, arg3);
-        }
-    
-        juce::String log_message;
-        auto raw_message = juce::String(type);
-        raw_message += juce::String(msg);
-        for (int i = 0; i < args.size(); i++)
-        {
-            int parseIndex = raw_message.indexOf("{}");
-            if (parseIndex == -1)
-            {
-                //MARK: TODO-3
-                // custom exception
-                throw std::exception("Too many arguments in log message.");
-            }
-    
-            log_message.append(raw_message.substring(0, parseIndex), 
-                                (size_t) raw_message.length());
-            auto arg = juce::String(args[i]);
-            log_message.append(arg, (size_t) arg.length());
-            raw_message = raw_message.substring(parseIndex + 1, 
-                                                raw_message.length());
-        }
-    
-        log_message.append(raw_message, (size_t) raw_message.length());
-        
-        broadcastMessage(log_message);
+    template<Loggable t>
+    inline static juce::String parseArg(t arg)
+    {
+        juce::ignoreUnused(arg);
+        return juce::String("Error-type");
     }
-    
-        template<> void parseArg<int>(juce::StringArray& args, int arg);
-        template<> void parseArg<float>(juce::StringArray& args, float arg);
-        template<> void parseArg<double>(juce::StringArray& args, double arg);
-        template<> void parseArg<std::string>(juce::StringArray& args, std::string arg);
-        template<> void parseArg<const char*>(juce::StringArray& args, const char* arg);
-        template<> void parseArg<juce::String>(juce::StringArray& args, juce::String arg);
-    };
 
-    class StdLogger final
-        : public Logger::LogDestination,
-        , public Singleton<StdLogger>
+    template<> juce::String parseArg<int>(int arg);
+    template<> juce::String parseArg<float>(float arg);
+    template<> juce::String parseArg<double>(double arg);
+    template<> juce::String parseArg<std::string>(std::string arg);
+    template<> juce::String parseArg<const char*>(const char* arg);
+    template<> juce::String parseArg<juce::String>(juce::String arg);
+
+public:
+    Logger(const Logger&) = delete;
+    Logger(Logger&&) = delete;
+    Logger& operator=(const Logger&) = delete;
+    ~Logger() noexcept(false);
+    static Logger* getInstance();
+
+    template<Loggable t = nullptr_t, 
+                Loggable u = nullptr_t, 
+                Loggable v = nullptr_t>
+    inline void logMessage(const char* type, const char* msg, 
+                    t arg1 = nullptr, u arg2 = nullptr, v arg3 = nullptr)
     {
-    public:
-        void log(juce::String msg) override;
+        try
+        {
+            juce::StringArray args;
 
-    private:
-        StdLogger();
-    };
+            if ( !std::is_same_v<t, std::nullptr_t> )
+            {
+                args.add(parseArg<t>(arg1));
+            }
+            if ( !std::is_same_v<u, std::nullptr_t> )
+            {
+                args.add(parseArg<u>(arg2));
+            }
+            if ( !std::is_same_v<v, std::nullptr_t> )
+            {
+                args.add(parseArg<v>(arg3));
+            }
+
+            juce::String log_base = juce::String(type) + juce::String(msg);
+            juce::String log_message = interpolate(log_base, args);
+
+            broadcastMessage(log_message);
+        }
+        catch (std::exception& e)
+        {
+            juce::String err_msg = 
+            "Error: Could not process log message:\n";
+            err_msg += juce::String(msg) + "\n";
+            err_msg += e.what();
+    
+            broadcastMessage(err_msg);
+        }
+        //MARK: TODO-1
+        //when introducing custom exceptions, parse errors and other errors
+        // should be handled differently
+    }
+
+    void addListener(LogDestination* listener);
+    void removeListener(LogDestination* listener);
+    void removaAllListeners();
+
+};
+
+class StdLogger final
+    : public Logger::LogDestination
+    , public Singleton<StdLogger>
+{
+public:
+    void log(juce::String msg) override;
+
+private:
+    StdLogger();
+};
 
 }
 

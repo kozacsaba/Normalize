@@ -7,7 +7,7 @@
 #include "util/Singleton.h"
 
 class TestDestination final
-    : public norm::Logger::LogDestination,
+    : public norm::Logger::LogDestination
     , public norm::Singleton<TestDestination>
 {
 public:
@@ -19,7 +19,13 @@ public:
     std::string getLog() const
     {
         return message.toStdString();
-    } 
+    }
+
+    void reset()
+    {
+        message = "";
+    }
+
 private:
     juce::String message;
 };
@@ -30,6 +36,7 @@ protected:
     void SetUp() override
     {
         norm::Logger::getInstance()->addListener(TestDestination::getInstance());
+        TestDestination::getInstance()->reset();
     }
 
     void TearDown() override
@@ -40,9 +47,8 @@ protected:
     void check(std::string ref)
     {
         auto* logger = (TestDestination*)TestDestination::getInstance();
-        const auto logString = logger->getLog().c_str();
-        const auto checkString = ref.c_str();
-        EXPECT_STREQ(checkString, logString);
+        const auto logString = logger->getLog();
+        EXPECT_STREQ(ref.c_str(), logString.c_str());
     }
 
     bool returnDef(bool shouldPass) const
@@ -54,17 +60,15 @@ protected:
         );
 
         return true;
-    };
+    }
 
-    bool throwDef(bool shouldPass)
+    void throwDef(bool shouldPass)
     {
         EXPECT_OR_THROW(
             shouldPass,
-            std::exception("asd");
+            std::exception("asd"),
             "error"
         );
-
-        // continue from here
     }
 };
 
@@ -96,8 +100,8 @@ TEST_F(LoggerTest, info_1arg_int)
 
 TEST_F(LoggerTest, info_1arg_double)
 {
-    MY_LOG_INFO("value is {}!", 1/3);
-    check("INFO: value is 0.333!");
+    MY_LOG_INFO("value is {}!", 1.0/3.0);
+    check("Info: value is 0.3333!");
 }
 
 TEST_F(LoggerTest, info_1arg_str)
@@ -114,14 +118,14 @@ TEST_F(LoggerTest, error_2arg_sametype)
 
 TEST_F(LoggerTest, error_2arg_difftype1)
 {
-    MY_LOG_ERROR("My two numbers are {} and {}", 73, 1/3);
+    MY_LOG_ERROR("My two numbers are {} and {}", 73, 1.0/3.0);
     check("Error: My two numbers are 73 and 0.3333");
 }
 
 TEST_F(LoggerTest, error_2arg_difftype2)
 {
     MY_LOG_ERROR("Number of {} is: {}", "cats", "12");
-    check("Error: Number of cats is 12");
+    check("Error: Number of cats is: 12");
 }
 
 TEST_F(LoggerTest, warning_3arg_1)
@@ -140,23 +144,30 @@ TEST_F(LoggerTest, warning_3arg_2)
 
 TEST_F(LoggerTest, ReturnDef_pass)
 {
-    
-
-    const bool retValue = foo();
-
-    EXCEPT(retValue);
+    const bool retValue = returnDef(true);
+    EXPECT_TRUE(retValue);
     check("");
 }
 
 TEST_F(LoggerTest, ReturnDef_fail)
 {
-    std::function<bool(void)> foo = []() -> bool
-    {
-        EXPECT_OR_RETURN(
-            false,
-            false,
-            "error"
-        )
-    }
+    const bool retValue = returnDef(false);
+    EXPECT_FALSE(retValue);
+    check("Warning: error");
 }
 
+TEST_F(LoggerTest, ThrowDef_pass)
+{
+    EXPECT_NO_THROW({
+        throwDef(true);
+    });
+    check("");
+}
+
+TEST_F(LoggerTest, ThowDef_fail)
+{
+    EXPECT_ANY_THROW({
+        throwDef(false);
+    });
+    check("Warning: error");
+}

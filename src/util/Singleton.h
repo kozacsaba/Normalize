@@ -17,7 +17,7 @@ namespace norm
         Singleton& operator=(const Singleton& other) = delete;
         Singleton& operator=(Singleton&&) = delete;
 
-        Derived* getInstance()
+        static Derived* getInstance()
         {
             if (instance == nullptr)
             {
@@ -27,7 +27,7 @@ namespace norm
             return instance.get();
         }
 
-    private:
+    protected:
         Singleton() = default;
 
         inline static std::unique_ptr<Derived> instance = nullptr;

@@ -1,5 +1,5 @@
 /*  TODO LIST 
-    * f/#9 TODO-4
+    * f/#9 TODO-4 TODO-3
 */
 
 #include "Logger.h"
@@ -58,41 +58,66 @@ void Logger::broadcastMessage(juce::String msg) const
     }
 }
 
-
-template<>
-void Logger::parseArg<int>(juce::StringArray& args, int arg)
+juce::String Logger::interpolate(juce::String raw_message, juce::StringArray args)
 {
-    args.add(juce::String(arg));
+    juce::String log_message;
+
+    for (int i = 0; i < args.size(); i++)
+    {
+        int parseIndex = raw_message.indexOf("{}");
+        if (parseIndex == -1)
+        {
+            //MARK: TODO-3
+            // custom exception
+            throw std::exception("Too many arguments in log message.");
+        }
+
+        log_message.append(raw_message.substring(0, parseIndex), 
+                            (size_t) raw_message.length());
+        auto arg = juce::String(args[i]);
+        log_message.append(arg, (size_t) arg.length());
+        raw_message = raw_message.substring(parseIndex + 2, 
+                                            raw_message.length());
+    }
+
+    log_message.append(raw_message, (size_t)raw_message.length());
+    return log_message;
 }
 
 template<>
-void Logger::parseArg<float>(juce::StringArray& args, float arg)
+juce::String Logger::parseArg<int>(int arg)
 {
-    args.add(juce::String(arg, 4, false));
+    return juce::String(arg);
 }
 
 template<>
-void Logger::parseArg<double>(juce::StringArray& args, double arg)
+juce::String Logger::parseArg<float>(float arg)
 {
-    args.add(juce::String(arg, 4, false));
+    return juce::String(arg, LOG_NUM_DECIMALS, false);
 }
 
 template<>
-void Logger::parseArg<std::string>(juce::StringArray& args, std::string arg)
+juce::String Logger::parseArg<double>(double arg)
 {
-    args.add(juce::String(arg));
+    return juce::String(arg, LOG_NUM_DECIMALS, false);
 }
 
 template<>
-void Logger::parseArg<const char*>(juce::StringArray& args, const char* arg)
+juce::String Logger::parseArg<std::string>(std::string arg)
 {
-    args.add(juce::String(arg));
+    return juce::String(arg);
 }
 
 template<>
-void Logger::parseArg<juce::String>(juce::StringArray& args, juce::String arg)
+juce::String Logger::parseArg<const char*>(const char* arg)
 {
-    args.add(arg);
+    return juce::String(arg);
+}
+
+template<>
+juce::String Logger::parseArg<juce::String>(juce::String arg)
+{
+    return arg;
 }
 
 //==============================================================================
@@ -104,4 +129,3 @@ void StdLogger::log(juce::String msg)
 
 StdLogger::StdLogger()
     : LogDestination() {}
-
