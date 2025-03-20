@@ -1,0 +1,37 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "config debug",
+            "description": "Debug build for ninja",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_CXX_STANDARD": "20",
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra"
+            }
+        },
+        {
+            "name": "config release",
+            "description": "Release build for ninja",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "debug-build",
+            "description": "Build Debug configuration",
+            "configurePreset": "config debug"
+        },
+        {
+            "name": "release-build",
+            "description": "Build Release configuration",
+            "configurePreset": "config release"
+        }
+    ]
+}

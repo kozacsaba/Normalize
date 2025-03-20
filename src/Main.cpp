@@ -1,4 +1,5 @@
 #include "MainComponent.h"
+#include "util/Logger.h"
 
 class NormalizeApplication final : public juce::JUCEApplication
 {
@@ -13,13 +14,15 @@ public:
     {
         // This method is where you should put your application's initialisation code..
         juce::ignoreUnused (commandLine);
-
+        norm::Logger::getInstance()->addListener(norm::StdLogger::getInstance());
         mainWindow.reset (new MainWindow (getApplicationName()));
     }
 
     void shutdown() override
     {
         mainWindow = nullptr;
+
+        norm::Logger::getInstance()->removaAllListeners();
     }
 
     void systemRequestedQuit() override
