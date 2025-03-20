@@ -126,6 +126,3 @@ void StdLogger::log(juce::String msg)
 {
     std::cerr << msg.toStdString() << std::endl;   
 }
-
-StdLogger::StdLogger()
-    : LogDestination() {}

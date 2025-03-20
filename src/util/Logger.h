@@ -137,9 +137,6 @@ class StdLogger final
 {
 public:
     void log(juce::String msg) override;
-
-private:
-    StdLogger();
 };
 
 }
