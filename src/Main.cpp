@@ -1,6 +1,7 @@
 #include "processor/MainProcessor.h"
 #include "gui/MainComponent.h"
 #include "util/Logger.h"
+#include "util/VTNames.h"
 
 class NormalizeApplication final : public juce::JUCEApplication
 {
@@ -17,7 +18,7 @@ public:
         juce::ignoreUnused (commandLine);
         norm::Logger::getInstance()->addListener(norm::StdLogger::getInstance());
 
-        mRoot = buildValueTree();
+        mRoot = norm::vt::buildValueTree();
         mProcessor = std::make_unique<norm::MainProcessor>(mRoot);
 
         mainWindow.reset (new MainWindow (getApplicationName()));
@@ -84,7 +85,6 @@ public:
     norm::MainProcessor* getProcessor() const { return mProcessor.get(); }
 
 private:
-    juce::ValueTree buildValueTree() const;
     juce::ValueTree mRoot;
 
     std::unique_ptr<norm::MainProcessor> mProcessor;
@@ -93,59 +93,3 @@ private:
 };
 
 START_JUCE_APPLICATION (NormalizeApplication)
-
-juce::ValueTree NormalizeApplication::buildValueTree() const
-{
-    juce::ValueTree root(norm::vt::Tree::root);
-
-    //--------------------------------------------------------------------------
-
-    juce::ValueTree Interface(norm::vt::Tree::interface);
-    Interface.setProperty (norm::vt::Interface::current_file,
-                           "...",
-                           nullptr);
-    Interface.setProperty (norm::vt::Interface::is_processing,
-                           false,
-                           nullptr);
-    Interface.setProperty (norm::vt::Interface::number_of_files,
-                           0,
-                           nullptr);
-    Interface.setProperty (norm::vt::Interface::progress_bar,
-                           0,
-                           nullptr);
-    Interface.setProperty (norm::vt::Interface::show_log,
-                           false,
-                           nullptr);
-    root.addChild(Interface, 0, nullptr);
-
-    //--------------------------------------------------------------------------
-
-    juce::ValueTree Settings(norm::vt::Tree::settings);
-    Settings.setProperty (norm::vt::Settings::follow_symlinks,
-                          false,
-                          nullptr);
-    Settings.setProperty (norm::vt::Settings::ignore_loudness_tag,
-                          false,
-                          nullptr);
-    Settings.setProperty (norm::vt::Settings::ignore_sample_peak,
-                          false,
-                           nullptr);
-    Settings.setProperty (norm::vt::Settings::recursive_search,
-                          true,
-                          nullptr);
-    Settings.setProperty (norm::vt::Settings::target_lkfs,
-                          -18.f,
-                          nullptr);
-    root.addChild(Settings, 0, nullptr);
-
-    //--------------------------------------------------------------------------
-
-    juce::ValueTree Directory(norm::vt::Tree::directory);
-    juce::ValueTree rootDir(norm::vt::Directory::folder);
-    Directory.addChild(rootDir, 0, nullptr);
-    root.addChild(Directory, 0, nullptr);
-
-    //--------------------------------------------------------------------------
-
-    return root;
-}

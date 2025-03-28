@@ -118,6 +118,7 @@ namespace FileHandler
     enum class ExcType : int
     {
         no_reader_for_file,
+        no_writer_for_file,
         insufficient_buffer,
         no_audio_loaded,
 
@@ -127,6 +128,7 @@ namespace FileHandler
     inline std::map<ExcType, const char*> TypeMap =
     {
         {ExcType::no_reader_for_file, "Could not create reader for file."},
+        {ExcType::no_writer_for_file, "Could not create writer for file."},
         {ExcType::insufficient_buffer, "Buffer is insufficient for one audio block."},
         {ExcType::no_audio_loaded, "Audio is not loaded into the FileHandler from the File."},
     };
@@ -136,6 +138,7 @@ namespace FileHandler
     namespace get
     {
         inline void no_reader_for_file() { throw exception(ExcType::no_reader_for_file); }
+        inline void no_writer_for_File() { throw exception(ExcType::no_writer_for_file); }
         inline void insufficient_buffer() { throw exception(ExcType::insufficient_buffer); }
         inline void no_audio_loaded() { throw exception(ExcType::no_audio_loaded); }
     }

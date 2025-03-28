@@ -11,29 +11,21 @@
 class LKFSTest : public testing::Test
 {
 protected:
-    norm::FileHandler mFileHandler;
-    norm::LKFS mLKFSProcessor;
+    std::unique_ptr<norm::FileHandler> mFileHandler;
     const float eps = 0.05f;
 
     float measureAudioFile(juce::String fileName)
     {
-        juce::File file = juce::File(TEST_AUDIO_DIR).getChildFile(fileName);
+        juce::File file = juce::File(TEST_AUDIO_DIR)
+                          .getChildFile("itu")
+                          .getChildFile(fileName);
         EXPECT_TRUE(file.existsAsFile());
 
-        mFileHandler.openFile(file);
-        double sampleRate = mFileHandler.getSampleRate();
-        int numberOfChannels = (int)(mFileHandler.getNumberOfChannels());
-        int samplesPerBlock = (int)(sampleRate * 0.1);
+        mFileHandler = std::make_unique<norm::FileHandler>(file);
+        mFileHandler->loadAudio();
+        mFileHandler->measure();
 
-        mLKFSProcessor.reset((float)sampleRate, numberOfChannels);
-        juce::AudioBuffer<float> buffer(numberOfChannels, samplesPerBlock);
-
-        while (mFileHandler.readNextBlock(&buffer))
-        {
-            mLKFSProcessor.processNext100ms(buffer);
-        }
-
-        return mLKFSProcessor.getIntegratedLoudness();
+        return mFileHandler->getLoudness().value();
     }
 };
 

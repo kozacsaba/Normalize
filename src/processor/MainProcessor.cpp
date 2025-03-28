@@ -11,7 +11,7 @@ MainProcessor::MainProcessor(juce::ValueTree& root)
     mTestManager.registerBasicFormats();
 }
 
-void MainProcessor::parse()
+void MainProcessor::parse() noexcept
 {
     nodeAction callback = [this](juce::ValueTree node, juce::File file)
     {
@@ -38,7 +38,7 @@ void MainProcessor::parse()
 
     traverse(rootFileNode, callback);
 }
-void MainProcessor::measure()
+void MainProcessor::measure() noexcept
 {
     nodeAction callback = [this](juce::ValueTree node, juce::File file)
     {
@@ -101,7 +101,7 @@ void MainProcessor::measure()
 
     traverse(rootFileNode, callback);
 }
-void MainProcessor::normailse()
+void MainProcessor::normailse() noexcept
 {
     nodeAction callback = [this](juce::ValueTree node, juce::File file)
     {
@@ -181,10 +181,11 @@ void MainProcessor::setRootDirectory(juce::File directory)
                               directory.getFullPathName(),
                               nullptr);
         parse();
+        countAudioFiles();
     } NORM_CATCH_ALL;
 }
 
-void MainProcessor::traverse (juce::ValueTree node, nodeAction callback)
+void MainProcessor::traverse (juce::ValueTree node, nodeAction callback) noexcept
 {
     try
     {
@@ -228,13 +229,9 @@ bool MainProcessor::canProcessFile(juce::File file)
     auto* format = mTestManager.findFormatForFileExtension(extension);
     if (format == nullptr) return false;
 
-    juce::AudioFormatReader* reader =
-        mTestManager.createReaderFor(file);
-
-    if (reader == nullptr) return false;
-
-    delete reader;
-    return true;
+    auto reader = std::unique_ptr<juce::AudioFormatReader>(
+        mTestManager.createReaderFor(file));
+    return reader != nullptr;
 }
 void MainProcessor::parseFile(juce::ValueTree fileNode, juce::File file)
 {
@@ -300,50 +297,25 @@ void MainProcessor::parseDirectory(juce::ValueTree folderNode, juce::File direct
         }
     }
 }
-
-//========================================
-
-int MainProcessor::countAudioFiles() const
+void MainProcessor::countAudioFiles()
 {
-    juce::ValueTree directory = mRoot.getChildWithName(vt::Tree::directory);
-    juce::ValueTree rootDir = directory.getChild(0);
-    if(rootDir == juce::ValueTree() ) exc::MainProc::get::root_dir_unset();
+    int numAudioFiles = 0;
+    nodeAction callback = [&numAudioFiles](juce::ValueTree node, juce::File file)
+    {
+        juce::ignoreUnused(file);
+        if (node.getType() != vt::Directory::file) return;
+        numAudioFiles++;
+    };
 
-    int numAudioFiles = countFilesInFolderRecursively(rootDir);
+    juce::ValueTree rootFileNode =
+        mRoot.getChildWithName(vt::Tree::directory).getChild(0);
+
+    traverse(rootFileNode, callback);
+
     juce::ValueTree interface = mRoot.getChildWithName(vt::Tree::interface);
     interface.setProperty(
         vt::Interface::number_of_files,
         numAudioFiles,
         nullptr
     );
-    return numAudioFiles;
 }
-int MainProcessor::countFilesInFolderRecursively(juce::ValueTree folderNode) const
-{
-    EXPECT_OR_RETURN(
-        folderNode.getType() == vt::Directory::folder,
-        0,
-        "Node has type {}, not folder. Children cannot be counted.",
-        folderNode.getType().toString()
-    );
-
-    int fileCount = 0;
-    int childCount = folderNode.getNumChildren();
-
-    for (int i = 0; i < childCount; i++)
-    {
-        juce::ValueTree child = folderNode.getChild(i);
-
-        if (child.getType() == vt::Directory::file)
-        {
-            if(child[vt::Directory::File::valid]) fileCount++;
-        }
-        else if ( child.getType() == vt::Directory::folder)
-        {
-            fileCount += countFilesInFolderRecursively(child);
-        }
-    }
-
-    return fileCount;
-}
-

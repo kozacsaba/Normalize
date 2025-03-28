@@ -17,17 +17,6 @@
 namespace norm
 {
 
-// TODO - cq/#17
-/*
-    Most of the functions of this class should be private, and only funcitonally
-    complete funcitons should be visible from the outside, to enforce
-    encapsulation. Anything that could leave this class in an incomplete state,
-    or a file in a half-processed state, should be a private function, not
-    accessible from the outside.
-    The process should also be separated into a measuring process and a gain
-    process, because they might need to be done separately.    
-*/
-
 class FileHandler
 {
 public:
@@ -36,12 +25,37 @@ public:
     inline static const char Unset_v[] = "Unset";
 
 public:
+    /** Opens file, reads audio file properties and caches metadata (if exists).
+     *  Throws if opening the file was not successful.
+     *  Sets fMeasured flag according to metadata.
+     *  The file provided here cannot be changed later. Use a unique_ptr to this
+     *  class to make it reusable.
+     */
     FileHandler(juce::File file);
     ~FileHandler();
 
+    /** Loads audio from the file that FileHandler holds, and caches metadata.
+     *  Returns true if loading was successful.
+     *  Sets fAudioLoaded flag.
+     */
     bool loadAudio();
+
+    /** Measures loaded audio file. Throws if no audio file is loaded.
+     *  Sets fMeasured flag.
+     *  Caches loudness and sample peak, but does not write them into metadata.    
+     */
     void measure();
+
+    /** Applies gain (in decibels) to the loaded audio. Throws if no audio is
+     *  loaded.
+     *  Changes loaded loudness and sample peak values (if the audio is
+     *  measured), but does not write them into metadata.
+     */
     void applyGainDecibel(float gain);
+
+    /** Writes file and metada (is exists) into file. Throws of no audio is 
+     *  loaded.
+     */
     void writeFile();
 
     bool isMeasured() const { return fMeasured; }
@@ -55,9 +69,6 @@ public:
         if (fMeasured) return mPeak;
         else return std::nullopt;
     }
-
-    // unsigned int getNumberOfChannels() const { return mFileAttributes.numberOfChannels; }
-    // double getSampleRate() const { return mFileAttributes.sampleRate; }
 
 private:
     bool readNextBlock(juce::AudioBuffer<float>* buffer);

@@ -38,11 +38,15 @@ namespace norm
         fMeasured = tmp_isMeasured;
 
         mWorkBuffer.setSize(
-            mFileAttributes.numberOfChannels,
+            (int) mFileAttributes.numberOfChannels,
             mSamplesPerBlock
         );
     }
-    FileHandler::~FileHandler() {}
+    FileHandler::~FileHandler() 
+    {
+        // reader must not outlive the format manager
+        mAudioReader.reset();
+    }
 
     bool FileHandler::loadAudio()
     {
@@ -53,7 +57,7 @@ namespace norm
 
         bool success = mAudioReader->read (&mBuffer,
                                            0,
-                                           mFileAttributes.length,
+                                           (int) mFileAttributes.length,
                                            0,
                                            true,
                                            true);
@@ -67,7 +71,7 @@ namespace norm
 
         mPlayhead = 0;
         mProcessor.reset (mFileAttributes.sampleRate, 
-                          mFileAttributes.numberOfChannels);
+                          (int) mFileAttributes.numberOfChannels);
 
         while(readNextBlock(&mWorkBuffer))
         {
@@ -96,11 +100,8 @@ namespace norm
     {
         if (!fAudioLoaded) exc::FileHandler::get::no_audio_loaded();
 
-        std::unique_ptr<juce::AudioFormat> format;
-        format.reset(mAudioFormatManager.findFormatForFileExtension(
-            mFile.getFileExtension()));
-
-        juce::FileOutputStream outputStream(mFile);
+        auto* format = mAudioFormatManager.findFormatForFileExtension(
+            mFile.getFileExtension());
 
         if (fMeasured)
         {
@@ -108,16 +109,36 @@ namespace norm
             mFileAttributes.metadata.set(SamplePeakTag, juce::String(mPeak));
         }
 
-        auto writer = format->createWriterFor(&outputStream,
-                                              mFileAttributes.sampleRate,
-                                              mFileAttributes.numberOfChannels,
-                                              (int)mAudioReader->bitsPerSample,
-                                              mFileAttributes.metadata,
-                                              0);
+        // will be deleted by the writer if created successfully
+        auto* outStream = new juce::FileOutputStream(mFile);
+
+        auto writer = std::unique_ptr<juce::AudioFormatWriter>(
+            format->createWriterFor (outStream,
+                                     mFileAttributes.sampleRate,
+                                     mFileAttributes.numberOfChannels,
+                                     (int)mAudioReader->bitsPerSample,
+                                     mFileAttributes.metadata,
+                                     0));
+
+        if (writer == nullptr)
+        {
+            // This is kinda silly on JUCE's part, because if the writer was
+            // created successfully, it does own the stream, if it wasn't, then
+            // it doesn't. So we cannot allocate in the constructor argument
+            // list - to enforce ownership relations - because that could leave
+            // us with leaking memory. We have to create a raw pointer and 
+            // either manually manage it or leave it to the writer, depending on
+            // whether it could be created successfully or not.
+            delete outStream;
+            exc::FileHandler::get::no_writer_for_File();
+        }
 
         writer->writeFromAudioSampleBuffer (mBuffer,
                                             0, 
                                             (int)mFileAttributes.length);
+
+        const bool flushed = writer->flush();
+        jassert(flushed);
     }
 
     bool FileHandler::readNextBlock(juce::AudioBuffer<float>* buffer)
@@ -128,16 +149,16 @@ namespace norm
 
         bool bufferSizeOkay =
             buffer != nullptr &&
-            buffer->getNumChannels() >= mFileAttributes.numberOfChannels &&
+            buffer->getNumChannels() >= (int) mFileAttributes.numberOfChannels &&
             buffer->getNumSamples() >= mSamplesPerBlock;
         if (!bufferSizeOkay) exc::FileHandler::get::insufficient_buffer();
 
-        for (int ch = 0; ch < mFileAttributes.numberOfChannels; ch++)
+        for (int ch = 0; ch < (int) mFileAttributes.numberOfChannels; ch++)
         {
             buffer->copyFrom(
                 ch,
                 0,
-                mBuffer.getReadPointer(ch, mPlayhead),
+                mBuffer.getReadPointer(ch, (int) mPlayhead),
                 mSamplesPerBlock
             );
         }
@@ -146,5 +167,4 @@ namespace norm
 
         return true;
     }
-
 }

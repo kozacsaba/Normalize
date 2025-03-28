@@ -41,7 +41,7 @@ SettingsPanel::ViewedComponent::ViewedComponent(juce::ValueTree& root)
     , btnSettings {
         new SettingButton (vt::Settings::recursive_search,
                            "Search directory recursively"),
-        new SettingButton (vt::Settings::ignore_loudness_tag,
+        new SettingButton (vt::Settings::ignore_tags,
                            "Ignore previous measurements"),
         new SettingButton (vt::Settings::follow_symlinks,
                            "Follow symlinks when looking for files")}
@@ -118,6 +118,8 @@ ActionPanel::ActionPanel (juce::ValueTree& root,
     , lblTargetInput("lblInput", "Enter Target")
     , btnStart("btnStart")
 {
+    juce::ignoreUnused(mProcessor);
+
     addAndMakeVisible (lblTarget);
     lblTarget.setEditable (false);
 
@@ -244,7 +246,7 @@ void ActionPanel::startClicked()
         return;
     }
 
-    mProcessor->beginProcessing();
+    //mProcessor->beginProcessing();
 }
 
 //==============================================================================
@@ -257,6 +259,8 @@ LoadingPanel::LoadingPanel(juce::ValueTree& root,
     , numberOfAllFiles(0)
     , numberOfProcessedFiles(0)
 {
+    juce::ignoreUnused(mProcessor);
+
     mRoot.getChildWithName(vt::Tree::interface).addListener(this);
 
     addAndMakeVisible(lblProgressPercent);
@@ -329,7 +333,7 @@ void LoadingPanel::valueTreePropertyChanged (
 
 void LoadingPanel::abortClicked()
 {
-    mProcessor->abort();
+    //mProcessor->abort();
 }
 
 //==============================================================================

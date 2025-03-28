@@ -46,6 +46,7 @@ protected:
 
     void check(std::string ref)
     {
+        if(!ref.empty() && !ref.ends_with('\n')) ref.append("\n");
         auto* logger = (TestDestination*)TestDestination::getInstance();
         const auto logString = logger->getLog();
         EXPECT_STREQ(ref.c_str(), logString.c_str());
