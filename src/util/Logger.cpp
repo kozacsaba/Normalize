@@ -81,6 +81,12 @@ juce::String Logger::interpolate(juce::String raw_message, juce::StringArray arg
     }
 
     log_message.append(raw_message, (size_t)raw_message.length());
+    
+    if(!log_message.endsWith("\n"))
+    {
+        log_message += "\n";
+    }
+
     return log_message;
 }
 

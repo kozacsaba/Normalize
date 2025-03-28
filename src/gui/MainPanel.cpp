@@ -28,7 +28,7 @@ setSettingsNode (juce::ValueTree node)
 {
     if (node == juce::ValueTree()) 
         exc::Gui::get::settings_node_missing();
-    if (node.getType() != vt::Tree::settings) 
+    if (node.getType() != vt::Tree::settings)
         exc::Gui::get::settings_node_corrupted();
 
     settingsNode = node;
@@ -75,10 +75,11 @@ SettingsPanel::SettingsPanel(juce::ValueTree& root)
 
 void SettingsPanel::resized()
 {
-    auto viewedArea = getViewArea();
-    viewedArea.setHeight (recommendedRowHeight * 
-                          mViewedComponent.getNumberOfSettings()
-    );
+    int width = getWidth() - getScrollBarThickness();
+    const int height = recommendedRowHeight * 
+                       mViewedComponent.getNumberOfSettings();
+
+    mViewedComponent.setSize(width, height);
 }
 
 //==============================================================================
@@ -142,7 +143,7 @@ bool ActionPanel::isValidNumber(juce::String str)
 {
     if(!str.containsOnly("+-.,0123456789"))
     {
-        const char* errmsg = "Target loudness \"{}\" declined, because it contains unrecodnised characters. Try a number.";
+        const char* errmsg = "Target loudness \"{}\" declined, because it contains unrecognised characters. Try a number.";
 
         MY_LOG_INFO(errmsg, str);
         return false;   
@@ -352,7 +353,7 @@ MainPanel::MainPanel (juce::ValueTree& root,
     btnToggleView.setButtonText("Toggle View");
     btnToggleView.onClick = [this] { toggleViewClicked(); };
 
-    mRoot.getChildWithName(vt::Tree::interface).addListener(this);
+    mRoot.addListener(this);
 }
 
 MainPanel::~MainPanel()
@@ -377,12 +378,6 @@ void MainPanel::valueTreePropertyChanged (
     juce::ValueTree &treeWhosePropertyHasChanged, 
     const juce::Identifier &property)
 {
-    MY_LOG_INFO(
-        "Detected change of property {} in tree {}.\n",
-        property.toString(),
-        treeWhosePropertyHasChanged.getType().toString()
-    );
-
     if(treeWhosePropertyHasChanged.getType() != vt::Tree::interface) return;
 
     if(property == vt::Interface::show_log)
