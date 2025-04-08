@@ -16,6 +16,12 @@
 #include "util/Singleton.h"
 
 #ifndef LOG_LEVEL
+    /*
+        0: Logging is disabled.
+        1: Only errors are logged.
+        2: Errors and warnings are logged.
+        3: Errors, warnings and info are all logged.
+    */
     #define LOG_LEVEL 3
 #endif
 
@@ -25,6 +31,7 @@
 
 namespace norm
 {
+
 template<typename t>
 concept Loggable = 
     std::is_arithmetic_v<t> ||
@@ -50,31 +57,6 @@ public:
     protected:
         LogDestination() = default;
     };
-
-private:
-
-    Logger() {}
-
-    void broadcastMessage(juce::String msg) const;
-
-    inline static std::unique_ptr<Logger> instance = nullptr;
-    std::vector<LogDestination*> listeners;
-
-    static juce::String interpolate(juce::String raw_message, juce::StringArray args);
-
-    template<Loggable t>
-    inline static juce::String parseArg(t arg)
-    {
-        juce::ignoreUnused(arg);
-        return juce::String("Error-type");
-    }
-
-    template<> juce::String parseArg<int>(int arg);
-    template<> juce::String parseArg<float>(float arg);
-    template<> juce::String parseArg<double>(double arg);
-    template<> juce::String parseArg<std::string>(std::string arg);
-    template<> juce::String parseArg<const char*>(const char* arg);
-    template<> juce::String parseArg<juce::String>(juce::String arg);
 
 public:
     Logger(const Logger&) = delete;
@@ -128,6 +110,30 @@ public:
     void addListener(LogDestination* listener);
     void removeListener(LogDestination* listener);
     void removaAllListeners();
+
+private:
+    Logger() {}
+
+    void broadcastMessage(juce::String msg) const;
+
+    inline static std::unique_ptr<Logger> instance = nullptr;
+    std::vector<LogDestination*> listeners;
+
+    static juce::String interpolate(juce::String raw_message, juce::StringArray args);
+
+    template<Loggable t>
+    inline static juce::String parseArg(t arg)
+    {
+        juce::ignoreUnused(arg);
+        return juce::String("Error-type");
+    }
+
+    template<> juce::String parseArg<int>(int arg);
+    template<> juce::String parseArg<float>(float arg);
+    template<> juce::String parseArg<double>(double arg);
+    template<> juce::String parseArg<std::string>(std::string arg);
+    template<> juce::String parseArg<const char*>(const char* arg);
+    template<> juce::String parseArg<juce::String>(juce::String arg);
 
 };
 
@@ -211,3 +217,12 @@ public:
         throw EXCEPT;                                                           \
     })                                                                          \
 
+#define NORM_CATCH_ALL                                                          \
+catch(const std::exception& e)                                                  \
+{                                                                               \
+    MY_LOG_ERROR(                                                               \
+        "Unexpected error: {}",                                                 \
+        e.what()                                                                \
+    );                                                                          \
+}                                                                               \
+ENFORCE_SEMICOLON()                                                             \

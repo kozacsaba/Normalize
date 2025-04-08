@@ -11,6 +11,8 @@
 #include <memory>
 #include <util/CircularArray.h>
 
+// TODO: cq/#9 throw exceptions instead of simple logging and returning void
+
 namespace norm
 {
 

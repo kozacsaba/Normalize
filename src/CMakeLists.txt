@@ -6,7 +6,6 @@ add_library(Source)
 
 target_sources(Source PRIVATE
     Main.cpp
-    MainComponent.cpp
 
     processor/MainProcessor.cpp
     processor/LKFSProcessor.cpp
@@ -14,8 +13,10 @@ target_sources(Source PRIVATE
     processor/FileHandler.cpp
 
     gui/FileList.cpp
+    gui/MainPanel.cpp
 
     util/Logger.cpp
+    gui/MainComponent.cpp
 )
 
 target_include_directories(Source 

@@ -7,9 +7,12 @@
 */
 
 #include <memory>
+#include <optional>
 #include <juce_core/juce_core.h>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_formats/juce_audio_formats.h>
+
+#include "LKFSProcessor.h"
 
 namespace norm
 {
@@ -18,28 +21,66 @@ class FileHandler
 {
 public:
     inline static const char LoudnessTag[] = "LKFS";
+    inline static const char SamplePeakTag[] = "PEAK";
+    inline static const char Unset_v[] = "Unset";
 
 public:
-    FileHandler();
+    /** Opens file, reads audio file properties and caches metadata (if exists).
+     *  Throws if opening the file was not successful.
+     *  Sets fMeasured flag according to metadata.
+     *  The file provided here cannot be changed later. Use a unique_ptr to this
+     *  class to make it reusable.
+     */
+    FileHandler(juce::File file);
     ~FileHandler();
 
-    bool openFile(juce::File file);
-    bool readNextBlock(juce::AudioBuffer<float>* buffer);
+    /** Loads audio from the file that FileHandler holds, and caches metadata.
+     *  Returns true if loading was successful.
+     *  Sets fAudioLoaded flag.
+     */
+    bool loadAudio();
+
+    /** Measures loaded audio file. Throws if no audio file is loaded.
+     *  Sets fMeasured flag.
+     *  Caches loudness and sample peak, but does not write them into metadata.    
+     */
+    void measure();
+
+    /** Applies gain (in decibels) to the loaded audio. Throws if no audio is
+     *  loaded.
+     *  Changes loaded loudness and sample peak values (if the audio is
+     *  measured), but does not write them into metadata.
+     */
     void applyGainDecibel(float gain);
+
+    /** Writes file and metada (is exists) into file. Throws of no audio is 
+     *  loaded.
+     */
     void writeFile();
 
-    bool hasLoudnessMetadata() { return mHasLoudnessMetadata; }
-    void setLoundessMetadata(float loudness);
-    unsigned int getNumberOfChannels() { return mFileAttributes.numberOfChannels; }
-    double getSampleRate() { return mFileAttributes.sampleRate; }
+    bool isMeasured() const { return fMeasured; }
+    std::optional<float> getLoudness() const 
+    {
+        if (fMeasured) return mLoudness;
+        else return std::nullopt;
+    }
+    std::optional<float> getSamplePeak() const
+    {
+        if (fMeasured) return mPeak;
+        else return std::nullopt;
+    }
 
 private:
+    bool readNextBlock(juce::AudioBuffer<float>* buffer);
+
     juce::AudioFormatManager mAudioFormatManager;
     std::unique_ptr<juce::AudioFormatReader> mAudioReader;
+    LKFS mProcessor;
 
     juce::File mFile;
     juce::AudioBuffer<float> mBuffer;
-    juce::int64 mPlayhead;
+    juce::AudioBuffer<float> mWorkBuffer;
+    juce::int64 mPlayhead = 0;
 
     struct {
         juce::StringPairArray metadata;
@@ -49,11 +90,12 @@ private:
         int qualityOptionIndex = 0;
     } mFileAttributes;
 
-    bool mHasLoudnessMetadata = false;
-    float mLoudness = 0;
-    int mSamplesPerBlock = 0;
+    bool fMeasured = false;
+    bool fAudioLoaded = false;
 
-    bool mHasFileOpen = false;
+    float mLoudness = 0;
+    float mPeak = 0;
+    int mSamplesPerBlock = 0;
 };
 
 } // namespace norm

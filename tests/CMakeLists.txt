@@ -12,10 +12,6 @@ add_executable(${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME} PRIVATE
     TestRunner.cc
-    HelloTest.h
-    FilterTest.h
-    CircularTest.h
-    LKFSTest.h
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC 
@@ -23,7 +19,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     GTest::gtest
 )
 
-set(TEST_AUDIO_DIR "${PROJECT_ROOT}/resources/test files/")
+set(TEST_AUDIO_DIR "${PROJECT_ROOT}/tests/test files/")
 target_compile_definitions(${PROJECT_NAME} PUBLIC
     TEST_AUDIO_DIR="${TEST_AUDIO_DIR}"
 )

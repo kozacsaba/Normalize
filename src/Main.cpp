@@ -1,5 +1,7 @@
-#include "MainComponent.h"
+#include "processor/MainProcessor.h"
+#include "gui/MainComponent.h"
 #include "util/Logger.h"
+#include "util/VTNames.h"
 
 class NormalizeApplication final : public juce::JUCEApplication
 {
@@ -15,6 +17,10 @@ public:
         // This method is where you should put your application's initialisation code..
         juce::ignoreUnused (commandLine);
         norm::Logger::getInstance()->addListener(norm::StdLogger::getInstance());
+
+        mRoot = norm::vt::buildValueTree();
+        mProcessor = std::make_unique<norm::MainProcessor>(mRoot);
+
         mainWindow.reset (new MainWindow (getApplicationName()));
     }
 
@@ -23,6 +29,7 @@ public:
         mainWindow = nullptr;
 
         norm::Logger::getInstance()->removaAllListeners();
+        mProcessor = nullptr;
     }
 
     void systemRequestedQuit() override
@@ -45,7 +52,14 @@ public:
                               allButtons)
         {
             setUsingNativeTitleBar (true);
-            setContentOwned (new MainComponent(), true);
+
+            auto* app = (NormalizeApplication*)NormalizeApplication::getInstance();
+
+            setContentOwned(
+                new MainComponent(
+                    app->getValueTreeRoot(), 
+                    app->getProcessor()),
+                true);
 
            #if JUCE_IOS || JUCE_ANDROID
             setFullScreen (true);
@@ -59,7 +73,6 @@ public:
 
         void closeButtonPressed() override
         {
-
             getInstance()->systemRequestedQuit();
         }
 
@@ -67,7 +80,15 @@ public:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainWindow)
     };
 
+    juce::ValueTree getValueTreeRoot() const { return mRoot; }
+
+    norm::MainProcessor* getProcessor() const { return mProcessor.get(); }
+
 private:
+    juce::ValueTree mRoot;
+
+    std::unique_ptr<norm::MainProcessor> mProcessor;
+
     std::unique_ptr<MainWindow> mainWindow;
 };
 
