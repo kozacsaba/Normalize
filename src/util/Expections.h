@@ -50,15 +50,25 @@ namespace MainProc
         abort = 0,
         root_dir_unset,
         root_dir_missing,
+        node_not_file,
+        traverse_callback_error,
+        normalise_before_measurement,
+        could_not_load_audio,
+        would_peak,
         
         numberOfTypes,
     };
 
     inline std::map<ExcType, const char*> TypeMap =
     {
-        {ExcType::abort, "Abort"},
-        {ExcType::root_dir_unset, "Root Directory is not set"},
-        {ExcType::root_dir_missing, "Root directory does not exist"},
+        {ExcType::abort, "Abort."},
+        {ExcType::root_dir_unset, "Root Directory is not set."},
+        {ExcType::root_dir_missing, "Root directory does not exist."},
+        {ExcType::node_not_file, "This node does not represent a file or folder."},
+        {ExcType::traverse_callback_error, "Callback error while traversing file structure."},
+        {ExcType::normalise_before_measurement, "You cannot normalise before measuring loudness."},
+        {ExcType::could_not_load_audio, "Could not load audio from file."},
+        {ExcType::would_peak, "Audio would peak if normalised with current value."},
     };
 
     NORM_DEF_EXC;
@@ -68,6 +78,11 @@ namespace MainProc
         inline void abort() { throw exception(ExcType::abort); }
         inline void root_dir_unset() { throw exception(ExcType::root_dir_unset); }
         inline void root_dir_missing() { throw exception(ExcType::root_dir_missing); }
+        inline void node_not_file() { throw exception(ExcType::node_not_file); }
+        inline void traverse_callback_error() { throw exception(ExcType::traverse_callback_error); }
+        inline void normalise_before_measurement() { throw exception(ExcType::normalise_before_measurement); }
+        inline void could_not_load_audio() { throw exception(ExcType::could_not_load_audio); }
+        inline void would_peak() { throw exception(ExcType::would_peak); }
     }
 
 } // namespace MainProc
@@ -97,6 +112,35 @@ namespace Gui
     }
 
 } // namespace Gui
+
+namespace FileHandler
+{
+    enum class ExcType : int
+    {
+        no_reader_for_file,
+        insufficient_buffer,
+        no_audio_loaded,
+
+        numberOfTypes
+    };
+
+    inline std::map<ExcType, const char*> TypeMap =
+    {
+        {ExcType::no_reader_for_file, "Could not create reader for file."},
+        {ExcType::insufficient_buffer, "Buffer is insufficient for one audio block."},
+        {ExcType::no_audio_loaded, "Audio is not loaded into the FileHandler from the File."},
+    };
+
+    NORM_DEF_EXC;
+
+    namespace get
+    {
+        inline void no_reader_for_file() { throw exception(ExcType::no_reader_for_file); }
+        inline void insufficient_buffer() { throw exception(ExcType::insufficient_buffer); }
+        inline void no_audio_loaded() { throw exception(ExcType::no_audio_loaded); }
+    }
+
+} // namespace FileHandler
 
 } // namespace norm::exc
 

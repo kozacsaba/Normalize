@@ -1,151 +1,112 @@
 #include "FileHandler.h"
 #include "util/Logger.h"
+#include "util/Expections.h"
 
 namespace norm
 {
-    FileHandler::FileHandler()
-        : mHasFileOpen(false)
+    FileHandler::FileHandler(juce::File file)
+        : mFile(file)
     {
         mAudioFormatManager.registerBasicFormats();
-    }
-    FileHandler::~FileHandler() {}
 
-    bool FileHandler::openFile(juce::File file)
-    {
-        mFile = file;
         mAudioReader.reset(mAudioFormatManager.createReaderFor(mFile));
+        if (mAudioReader == nullptr) exc::FileHandler::get::no_reader_for_file();
 
-        EXPECT_OR_RETURN (
-            mAudioReader != nullptr,
-            false, 
-            "Unable to create audio file reader source from file {}.",
-            mFile.getFullPathName().toStdString());
-        
-        mFileAttributes.length = mAudioReader->lengthInSamples;
         mFileAttributes.numberOfChannels = mAudioReader->numChannels;
-        mBuffer.setSize((int)mFileAttributes.numberOfChannels, 
-                        (int)mFileAttributes.length);
-        mPlayhead = 0;
+        mFileAttributes.length = mAudioReader->lengthInSamples;
         mFileAttributes.sampleRate = mAudioReader->sampleRate;
-        mSamplesPerBlock = (int)std::floor(mFileAttributes.sampleRate / 10.0);
-
         mFileAttributes.metadata = mAudioReader->metadataValues;
 
-        juce::String loudnessMetadata = 
+        mSamplesPerBlock = (int)std::floor(mFileAttributes.sampleRate / 10.0);
+
+        bool tmp_isMeasured = true;
+
+        juce::String loudnessMetadata =
             mFileAttributes.metadata.getValue(LoudnessTag, Unset_v);
-        if (loudnessMetadata == Unset_v) 
-        { 
-            mHasLoudnessMetadata = false;
-        }
+        if (loudnessMetadata == Unset_v)
+            tmp_isMeasured = false;
         else
-        {
-            mHasLoudnessMetadata = true;
             mLoudness = loudnessMetadata.getFloatValue();
-        }
 
         juce::String samplePeakMetadata =
             mFileAttributes.metadata.getValue(SamplePeakTag, Unset_v);
         if (samplePeakMetadata == Unset_v)
-        {
-            mHasSamplePeakMetadata = false;
-        }
+            tmp_isMeasured = false;
         else
-        {
-            mHasSamplePeakMetadata = true;
             mPeak = samplePeakMetadata.getFloatValue();
-        }
 
-        mHasFileOpen = true;
-        return true;
+        fMeasured = tmp_isMeasured;
+
+        mWorkBuffer.setSize(
+            mFileAttributes.numberOfChannels,
+            mSamplesPerBlock
+        );
     }
-    bool FileHandler::readNextBlock(juce::AudioBuffer<float>* buffer)
+    FileHandler::~FileHandler() {}
+
+    bool FileHandler::loadAudio()
     {
-        EXPECT_OR_RETURN (mHasFileOpen,
-                          false,
-                          "Cannot perform read without a file open");
+        mPlayhead = 0;
 
-        if (mPlayhead + mSamplesPerBlock > mFileAttributes.length) return false;
+        mBuffer.setSize ((int)mFileAttributes.numberOfChannels, 
+                         (int)mFileAttributes.length);
 
-        mAudioReader->read (buffer,
-                            0,
-                            mSamplesPerBlock,
-                            (int)mPlayhead,
-                            true,
-                            true);
+        bool success = mAudioReader->read (&mBuffer,
+                                           0,
+                                           mFileAttributes.length,
+                                           0,
+                                           true,
+                                           true);
 
-        for (unsigned int ch = 0; ch < mFileAttributes.numberOfChannels; ch++)
+        fAudioLoaded = success;
+        return fAudioLoaded;
+    }
+    void FileHandler::measure()
+    {
+        if (!fAudioLoaded) exc::FileHandler::get::no_audio_loaded();
+
+        mPlayhead = 0;
+        mProcessor.reset (mFileAttributes.sampleRate, 
+                          mFileAttributes.numberOfChannels);
+
+        while(readNextBlock(&mWorkBuffer))
         {
-            mBuffer.copyFrom ((int)ch, 
-                              (int)mPlayhead, 
-                              buffer->getReadPointer((int)ch), 
-                              mSamplesPerBlock);
+            mProcessor.processNext100ms(mWorkBuffer);
         }
 
-        mPlayhead += mSamplesPerBlock;
-        return true;
+        mLoudness = mProcessor.getIntegratedLoudness();
+        mPeak = mProcessor.getSamplePeak();
+
+        fMeasured = true;
     }
     void FileHandler::applyGainDecibel(float gain)
     {
-        EXPECT_OR_RETURN (mHasLoudnessMetadata, 
-                          void(), 
-                          "Calculate Loudness before applying gain");
+        if (!fAudioLoaded) exc::FileHandler::get::no_audio_loaded();
 
         float linear_gain = juce::Decibels::decibelsToGain(gain);
         mBuffer.applyGain(linear_gain);
 
-        mLoudness += gain;
-        mFileAttributes.metadata.set(LoudnessTag, juce::String(mLoudness));
-
-        mPeak *= linear_gain;
-        mFileAttributes.metadata.set(SamplePeakTag, juce::String(mPeak));
-        mHasSamplePeakMetadata = true;
+        if (fMeasured)
+        {
+            mLoudness += gain;
+            mPeak *= linear_gain;
+        }
     }
-    
-    void FileHandler::setLoundessMetadata(float loudness)
-    {
-        mLoudness = loudness;
-        mFileAttributes.metadata.set(LoudnessTag, juce::String(mLoudness));
-        mHasLoudnessMetadata = true;
-    }
-    float FileHandler::getLoudnessMetadata() const
-    {
-        EXPECT_OR_THROW(
-            hasLoudnessMetadata(),
-            std::exception("No Loudness Metadata to return"),
-            "No Loudness Metadata is present"
-        );
-
-        return mLoudness;
-    }
-    
-    void FileHandler::setSamplePeakMetadata(float peak)
-    {
-        mPeak = peak;
-        mFileAttributes.metadata.set(SamplePeakTag, juce::String(peak));
-        mHasSamplePeakMetadata = true;
-    }
-    float FileHandler::getSamplePeakMetadata() const
-    {
-        EXPECT_OR_THROW(
-            hasSamplePeakMetadata(),
-            std::exception("No Loudness Metadata to return"),
-            "No Loudness Metadata is present"
-        );
-
-        return mPeak;
-    }
-    
     void FileHandler::writeFile()
     {
-        EXPECT_OR_RETURN (mHasLoudnessMetadata && mHasFileOpen,
-                          void(),
-                          "No file open, or file not analyzed");
+        if (!fAudioLoaded) exc::FileHandler::get::no_audio_loaded();
 
         std::unique_ptr<juce::AudioFormat> format;
         format.reset(mAudioFormatManager.findFormatForFileExtension(
             mFile.getFileExtension()));
 
         juce::FileOutputStream outputStream(mFile);
+
+        if (fMeasured)
+        {
+            mFileAttributes.metadata.set(LoudnessTag, juce::String(mLoudness));
+            mFileAttributes.metadata.set(SamplePeakTag, juce::String(mPeak));
+        }
 
         auto writer = format->createWriterFor(&outputStream,
                                               mFileAttributes.sampleRate,
@@ -157,8 +118,33 @@ namespace norm
         writer->writeFromAudioSampleBuffer (mBuffer,
                                             0, 
                                             (int)mFileAttributes.length);
+    }
 
-        mHasFileOpen = false;
+    bool FileHandler::readNextBlock(juce::AudioBuffer<float>* buffer)
+    {
+        if (mPlayhead + mSamplesPerBlock > mFileAttributes.length) return false;
+
+        if (!fAudioLoaded) exc::FileHandler::get::no_audio_loaded();
+
+        bool bufferSizeOkay =
+            buffer != nullptr &&
+            buffer->getNumChannels() >= mFileAttributes.numberOfChannels &&
+            buffer->getNumSamples() >= mSamplesPerBlock;
+        if (!bufferSizeOkay) exc::FileHandler::get::insufficient_buffer();
+
+        for (int ch = 0; ch < mFileAttributes.numberOfChannels; ch++)
+        {
+            buffer->copyFrom(
+                ch,
+                0,
+                mBuffer.getReadPointer(ch, mPlayhead),
+                mSamplesPerBlock
+            );
+        }
+
+        mPlayhead += mSamplesPerBlock;
+
+        return true;
     }
 
 }

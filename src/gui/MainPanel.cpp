@@ -15,10 +15,9 @@ SettingButton (vt::id setting_id, juce::String displayName)
     , settingId(setting_id)
 {
     onClick = [this] () {
-        const bool state = settingsNode[settingId];
         settingsNode.setProperty(
             settingId,
-            !state,
+            getToggleState(),
             nullptr
         );
     };
@@ -37,7 +36,7 @@ setSettingsNode (juce::ValueTree node)
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-SettingsPanel::ViewedComponent::ViewedComponent(juce::ValueTree root)
+SettingsPanel::ViewedComponent::ViewedComponent(juce::ValueTree& root)
     : mRoot(root)
     , btnSettings {
         new SettingButton (vt::Settings::recursive_search,
@@ -67,7 +66,7 @@ void SettingsPanel::ViewedComponent::resized()
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-SettingsPanel::SettingsPanel(juce::ValueTree root)
+SettingsPanel::SettingsPanel(juce::ValueTree& root)
     : mRoot(root)
     , mViewedComponent(mRoot)
 {
@@ -110,7 +109,7 @@ void LogPanel::log(juce::String msg)
 
 //==============================================================================
 
-ActionPanel::ActionPanel (juce::ValueTree root, 
+ActionPanel::ActionPanel (juce::ValueTree& root, 
                           MainProcessor* processor)
     : mRoot(root)
     , mProcessor(processor)
@@ -249,7 +248,7 @@ void ActionPanel::startClicked()
 
 //==============================================================================
 
-LoadingPanel::LoadingPanel(juce::ValueTree root, 
+LoadingPanel::LoadingPanel(juce::ValueTree& root, 
                            MainProcessor* processor)
     : mRoot(root)
     , mProcessor(processor)
@@ -334,7 +333,7 @@ void LoadingPanel::abortClicked()
 
 //==============================================================================
 
-MainPanel::MainPanel (juce::ValueTree root,
+MainPanel::MainPanel (juce::ValueTree& root,
                       MainProcessor* processor)
     : mRoot(root)
     , mProcessor(processor)
@@ -353,9 +352,7 @@ MainPanel::MainPanel (juce::ValueTree root,
     btnToggleView.setButtonText("Toggle View");
     btnToggleView.onClick = [this] { toggleViewClicked(); };
 
-    juce::ValueTree Interface = mRoot.getChildWithName(vt::Tree::interface);
-    MY_LOG_INFO("Interface Tree is:\n", Interface.toXmlString());
-    Interface.addListener(this);
+    mRoot.getChildWithName(vt::Tree::interface).addListener(this);
 }
 
 MainPanel::~MainPanel()
@@ -380,6 +377,12 @@ void MainPanel::valueTreePropertyChanged (
     juce::ValueTree &treeWhosePropertyHasChanged, 
     const juce::Identifier &property)
 {
+    MY_LOG_INFO(
+        "Detected change of property {} in tree {}.\n",
+        property.toString(),
+        treeWhosePropertyHasChanged.getType().toString()
+    );
+
     if(treeWhosePropertyHasChanged.getType() != vt::Tree::interface) return;
 
     if(property == vt::Interface::show_log)
@@ -398,12 +401,10 @@ void MainPanel::valueTreePropertyChanged (
 
 void MainPanel::toggleViewClicked()
 {
-    juce::ValueTree interface = 
-        mRoot.getChildWithName(vt::Tree::interface);
+    const bool show_log = 
+        mRoot.getChildWithName(vt::Tree::interface)[vt::Interface::show_log];
 
-    const bool show_log = interface[vt::Interface::show_log];
-    
-    interface.setProperty(
+    mRoot.getChildWithName(vt::Tree::interface).setProperty(
         vt::Interface::show_log,
         !show_log,
         nullptr

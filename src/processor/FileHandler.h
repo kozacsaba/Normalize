@@ -7,9 +7,12 @@
 */
 
 #include <memory>
+#include <optional>
 #include <juce_core/juce_core.h>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_formats/juce_audio_formats.h>
+
+#include "LKFSProcessor.h"
 
 namespace norm
 {
@@ -33,32 +36,40 @@ public:
     inline static const char Unset_v[] = "Unset";
 
 public:
-    FileHandler();
+    FileHandler(juce::File file);
     ~FileHandler();
 
-    bool openFile(juce::File file);
-    bool readNextBlock(juce::AudioBuffer<float>* buffer);
+    bool loadAudio();
+    void measure();
     void applyGainDecibel(float gain);
     void writeFile();
 
-    bool hasLoudnessMetadata() const { return mHasLoudnessMetadata; }
-    void setLoundessMetadata(float loudness);
-    float getLoudnessMetadata() const;
+    bool isMeasured() const { return fMeasured; }
+    std::optional<float> getLoudness() const 
+    {
+        if (fMeasured) return mLoudness;
+        else return std::nullopt;
+    }
+    std::optional<float> getSamplePeak() const
+    {
+        if (fMeasured) return mPeak;
+        else return std::nullopt;
+    }
 
-    bool hasSamplePeakMetadata() const { return mHasSamplePeakMetadata; }
-    void setSamplePeakMetadata(float peak);
-    float getSamplePeakMetadata() const;
-
-    unsigned int getNumberOfChannels() const { return mFileAttributes.numberOfChannels; }
-    double getSampleRate() const { return mFileAttributes.sampleRate; }
+    // unsigned int getNumberOfChannels() const { return mFileAttributes.numberOfChannels; }
+    // double getSampleRate() const { return mFileAttributes.sampleRate; }
 
 private:
+    bool readNextBlock(juce::AudioBuffer<float>* buffer);
+
     juce::AudioFormatManager mAudioFormatManager;
     std::unique_ptr<juce::AudioFormatReader> mAudioReader;
+    LKFS mProcessor;
 
     juce::File mFile;
     juce::AudioBuffer<float> mBuffer;
-    juce::int64 mPlayhead;
+    juce::AudioBuffer<float> mWorkBuffer;
+    juce::int64 mPlayhead = 0;
 
     struct {
         juce::StringPairArray metadata;
@@ -68,13 +79,12 @@ private:
         int qualityOptionIndex = 0;
     } mFileAttributes;
 
-    bool mHasLoudnessMetadata = false;
-    bool mHasSamplePeakMetadata = false;
+    bool fMeasured = false;
+    bool fAudioLoaded = false;
+
     float mLoudness = 0;
     float mPeak = 0;
     int mSamplesPerBlock = 0;
-
-    bool mHasFileOpen = false;
 };
 
 } // namespace norm

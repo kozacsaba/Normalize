@@ -5,10 +5,12 @@
     gui components will be able to call public methods.
 */
 
+#include <functional>
+#include <juce_data_structures/juce_data_structures.h>
+
 #include "FileHandler.h"
 #include "LKFSProcessor.h"
 #include "util/VTNames.h"
-#include "juce_data_structures/juce_data_structures.h"
 
 namespace norm
 {
@@ -33,35 +35,36 @@ namespace norm
 class MainProcessor
 {
     const float eps = 0.01f;
+    using nodeAction = std::function<void(juce::ValueTree, juce::File)>;
 
 public:
-    MainProcessor(juce::ValueTree root);
+    MainProcessor(juce::ValueTree& root);
     MainProcessor(MainProcessor&&) = delete;
     MainProcessor(const MainProcessor&) = delete;
 
     void abort() { mAbortFlag = true; }
-    void beginProcessing();
-    void resync();
+    
+    void parse() noexcept;
+    void measure() noexcept;
+    void normailse() noexcept;
 
     void setRootDirectory(juce::File directory);
-
     juce::ValueTree getValueTree() const { return mRoot; }
 
 private:
+    void traverse (juce::ValueTree node, nodeAction callback) noexcept;
+
     bool canProcessFile(juce::File file);
-    void parseFile(juce::File file, juce::ValueTree fileNode);
-    void parseDirectory(juce::File directory, juce::ValueTree folderNode);
+    void parseFile(juce::ValueTree fileNode, juce::File file);
+    void parseDirectory(juce::ValueTree folderNode, juce::File directory);
     int countAudioFiles() const;
     int countFilesInFolderRecursively(juce::ValueTree folderNode) const;
 
-    void processFile(juce::ValueTree fileNode);
-    void processDirectory(juce::ValueTree directoryNode);
 
-    FileHandler mFileHandler;
-    LKFS mLoudnessProcessor;
+
     juce::AudioFormatManager mTestManager;
 
-    juce::ValueTree mRoot;
+    juce::ValueTree& mRoot;
     bool mAbortFlag;
 };
 }

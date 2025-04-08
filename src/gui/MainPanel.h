@@ -33,12 +33,15 @@ private:
             static void setSettingsNode(juce::ValueTree node);
 
         private:
+            // Could be raplaced by root node to make sure the same object is
+            // used everywhere, but I don't think it is neccessary, as there are
+            // no listeners to the Settings Tree.
             static juce::ValueTree settingsNode;
             const vt::id settingId;
         };
 
     public:
-        ViewedComponent(juce::ValueTree root);
+        ViewedComponent(juce::ValueTree& root);
 
         void resized() override;
 
@@ -48,17 +51,17 @@ private:
         }
 
     private:
-        juce::ValueTree mRoot;
+        juce::ValueTree& mRoot;
         juce::Array<std::shared_ptr<juce::ToggleButton>> btnSettings;
     };
 
 public:
-    SettingsPanel(juce::ValueTree root);
+    SettingsPanel(juce::ValueTree& root);
 
     void resized() override;
 
 private:
-    juce::ValueTree mRoot;
+    juce::ValueTree& mRoot;
     ViewedComponent mViewedComponent;
 };
 
@@ -81,7 +84,7 @@ private:
 class ActionPanel : public juce::Component
 {
 public:
-    ActionPanel(juce::ValueTree root, 
+    ActionPanel(juce::ValueTree& root, 
                 MainProcessor* processor);
 
     void resized() override;
@@ -92,7 +95,7 @@ public:
 private:
     static bool isValidNumber(juce::String str);
 
-    juce::ValueTree mRoot;
+    juce::ValueTree& mRoot;
     MainProcessor* mProcessor;
 
     juce::Label lblTarget;
@@ -109,7 +112,7 @@ class LoadingPanel
     const int loading_bar_margin = 2;
 
 public:
-    LoadingPanel(juce::ValueTree root, 
+    LoadingPanel(juce::ValueTree& root, 
                  MainProcessor* processor);
     ~LoadingPanel() override;
 
@@ -122,7 +125,7 @@ public:
     void abortClicked();
 
 private:
-    juce::ValueTree mRoot;
+    juce::ValueTree& mRoot;
     MainProcessor* mProcessor;
 
     juce::Label lblProgressPercent;
@@ -142,7 +145,7 @@ class MainPanel
     const int toggle_button_width = 70;
 
 public:
-    MainPanel(juce::ValueTree root,
+    MainPanel(juce::ValueTree& root,
               MainProcessor* processor);
     ~MainPanel() override;
 
@@ -154,7 +157,7 @@ public:
 private:
     void toggleViewClicked();
 
-    juce::ValueTree mRoot;
+    juce::ValueTree& mRoot;
     MainProcessor* mProcessor;
 
     SettingsPanel mSettingsPanel;

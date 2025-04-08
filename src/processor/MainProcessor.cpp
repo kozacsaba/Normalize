@@ -4,129 +4,221 @@
 
 using namespace norm;
 
-MainProcessor::MainProcessor(juce::ValueTree root)
+MainProcessor::MainProcessor(juce::ValueTree& root)
     : mRoot(root)
     , mAbortFlag(false)
 {
     mTestManager.registerBasicFormats();
 }
 
-void MainProcessor::beginProcessing()
+void MainProcessor::parse()
 {
-    mRoot.getChildWithName(vt::Tree::interface).setProperty
-    (
-        vt::Interface::is_processing,
-        true,
-        nullptr
-    );
-
-    try
+    nodeAction callback = [this](juce::ValueTree node, juce::File file)
     {
-        juce::ValueTree dirNode = mRoot.getChildWithName(vt::Tree::directory);
-        juce::ValueTree rootDir = dirNode.getChild(0);
-        if (rootDir == juce::ValueTree()) exc::MainProc::get::root_dir_unset();
+        if (file.existsAsFile())
+        {
+            parseFile(node, file);
+        }
+        else if (file.isDirectory())
+        {
+            parseDirectory(node, file);
+        }
+        else
+        {
+            MY_LOG_WARNING(
+                "Item: {}",
+                file.getFullPathName()
+            );
+            exc::MainProc::get::node_not_file();
+        }
+    };
 
-        juce::File rootFile(rootDir[vt::Directory::Folder::path]);
-        if (!rootFile.isDirectory()) exc::MainProc::get::root_dir_missing();
+    juce::ValueTree rootFileNode = 
+        mRoot.getChildWithName(vt::Tree::directory).getChild(0);
 
-        processDirectory(rootDir);
-    }
-    catch (exc::MainProc::exception& e)
-    {
-        MY_LOG_ERROR(
-            "Error while processing files: {}",
-            e.what()
-        );
-
-        mRoot.getChildWithName(vt::Tree::interface).setProperty(
-            vt::Interface::show_log,
-            true,
-            nullptr
-        );
-    }
-    catch (std::exception& e)
-    {
-         MY_LOG_ERROR(
-            "Unexpected error: {}",
-            e.what()
-        );
-
-        mRoot.getChildWithName(vt::Tree::interface).setProperty(
-            vt::Interface::show_log,
-            true,
-            nullptr
-        );
-    }
-
-    mRoot.getChildWithName(vt::Tree::interface).setProperty
-    (
-        vt::Interface::is_processing,
-        false,
-        nullptr
-    );
+    traverse(rootFileNode, callback);
 }
-void MainProcessor::resync()
+void MainProcessor::measure()
 {
-    try
+    nodeAction callback = [this](juce::ValueTree node, juce::File file)
     {
-        juce::ValueTree rootNode = mRoot.getChildWithName(vt::Tree::directory)
-                                        .getChild(0);
+        if (!file.existsAsFile()) return;
+        if (node.getType() != vt::Directory::file) return;
 
-        if(!rootNode.isValid()) exc::MainProc::get::root_dir_unset();
+        const bool ignore_tags = 
+            mRoot.getChildWithName(vt::Tree::settings)
+            [vt::Settings::ignore_tags];
+        if(!ignore_tags && node[vt::Directory::File::measured]) return;
 
-        juce::File rootFile(rootNode[vt::Directory::Folder::path]);
-        if(!rootFile.isDirectory()) exc::MainProc::get::root_dir_missing();
+        try
+        {
+            auto fileHandler = std::make_unique<FileHandler>(file);
+            const bool loadedAudio = fileHandler->loadAudio();
+    
+            EXPECT_OR_RETURN (loadedAudio,
+                              void (),
+                              "Could not load audio for file {} -- Skipped.",
+                              file.getFullPathName());
+    
+            fileHandler->measure();
+            fileHandler->writeFile();
+    
+            node.setProperty (vt::Directory::File::loudness,
+                              fileHandler->getLoudness().value(),
+                              nullptr);
+    
+            node.setProperty (vt::Directory::File::peak,
+                              fileHandler->getSamplePeak().value(),
+                              nullptr);
+    
+            node.setProperty (vt::Directory::File::has_warning,
+                              false,
+                              nullptr);
+    
+            node.setProperty (vt::Directory::File::measured,
+                              true,
+                              nullptr);
+        }
+        catch (exc::FileHandler::exception& e)
+        {
+            MY_LOG_WARNING ("While measuring file {} :\n",
+                            file.getFullPathName());
 
-        rootNode.removeAllChildren(nullptr);
-        parseDirectory(rootFile, rootNode);
-    }
-    catch(const exc::MainProc::exception& e)
+            node.setProperty (vt::Directory::File::has_warning,
+                              true,
+                              nullptr);
+
+            node.setProperty (vt::Directory::File::err_msg,
+                              e.what(),
+                              nullptr);
+
+            throw exc::FileHandler::exception(e.getType());
+        }
+    };
+
+    juce::ValueTree rootFileNode =
+        mRoot.getChildWithName(vt::Tree::directory).getChild(0);
+
+    traverse(rootFileNode, callback);
+}
+void MainProcessor::normailse()
+{
+    nodeAction callback = [this](juce::ValueTree node, juce::File file)
     {
-        MY_LOG_ERROR(
-            "Error while attempting to parse directory: {}",
-            e.what()
-        );
-    }
-    catch(const std::exception& e)
-    {
-        MY_LOG_ERROR(
-            "Unexpected error: {}",
-            e.what()
-        );
-    }
+        if (!file.existsAsFile()) return;
+        if (node.getType() != vt::Directory::file) return;
+        if (!node[vt::Directory::File::valid]) return;
+
+        try
+        {
+            auto fileHandler = std::make_unique<FileHandler>(file);
+            if (!fileHandler->isMeasured()) 
+                exc::MainProc::get::normalise_before_measurement();
+
+            if (!fileHandler->loadAudio())
+                exc::MainProc::get::could_not_load_audio();
+
+            float loudnessDB = fileHandler->getLoudness().value();
+            float target = (float)mRoot.getChildWithName(vt::Tree::settings)
+                           [vt::Settings::target_lkfs];
+            float gainNeeded = target - loudnessDB;
+
+            float wouldBePeak = fileHandler->getSamplePeak().value() *
+                                juce::Decibels::decibelsToGain(gainNeeded);
+            if (wouldBePeak > 1.f) exc::MainProc::get::would_peak();
+
+            fileHandler->applyGainDecibel(gainNeeded);
+            fileHandler->writeFile();
+
+            node.setProperty (vt::Directory::File::loudness,
+                              fileHandler->getLoudness().value(),
+                              nullptr);
+
+            node.setProperty (vt::Directory::File::peak,
+                              fileHandler->getSamplePeak().value(),
+                              nullptr);
+
+            node.setProperty (vt::Directory::File::has_warning,
+                              false,
+                              nullptr);
+        }
+        catch(const exc::MainProc::exception& e)
+        {
+            MY_LOG_WARNING ("In file {}:",
+                            file.getFullPathName());
+
+            node.setProperty (vt::Directory::File::has_warning,
+                              true,
+                              nullptr);
+
+            node.setProperty (vt::Directory::File::err_msg,
+                              e.what(),
+                              nullptr);
+
+            throw exc::MainProc::exception(e.getType());
+        }
+    };
+
+    juce::ValueTree rootFileNode =
+        mRoot.getChildWithName(vt::Tree::directory).getChild(0);
+
+    traverse(rootFileNode, callback);
 }
 void MainProcessor::setRootDirectory(juce::File directory)
 {
     try
     {
-        EXPECT_OR_RETURN(
-            directory.isDirectory(),
-            void (),
-            "Selected item is not a directory: {}",
-            directory.getFullPathName()
-        );
-
-        juce::ValueTree rootNode(vt::Directory::folder);
-        parseDirectory(directory, rootNode);
+        EXPECT_OR_RETURN (directory.isDirectory(),
+                          void (),
+                          "Selected item is not a directory: {}",
+                          directory.getFullPathName());
 
         auto directoryTree = mRoot.getChildWithName(vt::Tree::directory);
         directoryTree.removeAllChildren(nullptr);
-
+        juce::ValueTree rootNode(vt::Directory::folder);
         directoryTree.appendChild(rootNode, nullptr);
-    }
-    catch (exc::MainProc::exception& e)
+        rootNode.setProperty (vt::Directory::Folder::path,
+                              directory.getFullPathName(),
+                              nullptr);
+        parse();
+    } NORM_CATCH_ALL;
+}
+
+void MainProcessor::traverse (juce::ValueTree node, nodeAction callback)
+{
+    try
     {
-        MY_LOG_ERROR(
-            "Error while setting root directory: {}. Please try again.",
-            e.what()
-        );
+        if(!node.isValid()) exc::MainProc::get::root_dir_unset();
+    
+        const vt::id type = node.getType();
+        const bool isFile = type == vt::Directory::file ||
+                            type == vt::Directory::folder;
+    
+        if (!isFile) exc::MainProc::get::node_not_file();
+    
+        const vt::id path = type == vt::Directory::file 
+            ? vt::Directory::File::path
+            : vt::Directory::Folder::path;
+    
+        juce::File file(node[path].toString());
+        callback(node, file);
     }
-    catch (std::exception& e)
+    catch (const exc::MainProc::exception& e)
     {
-        MY_LOG_ERROR(
-            "Unexcepted error: {}",
-            e.what()
-        );
+        MY_LOG_INFO ("While traversing tree:\n{}",
+                     e.what());
+        return;
+    }
+    catch(const std::exception& e)
+    {
+        MY_LOG_ERROR ("Unexpected error:\n{}",
+                      e.what());
+        return;
+    }
+
+    for (int i = 0; i < node.getNumChildren(); i++)
+    {
+        traverse(node.getChild(i), callback);
     }
 }
 
@@ -144,123 +236,48 @@ bool MainProcessor::canProcessFile(juce::File file)
     delete reader;
     return true;
 }
-void MainProcessor::parseFile(juce::File file, juce::ValueTree fileNode)
+void MainProcessor::parseFile(juce::ValueTree fileNode, juce::File file)
 {
-    EXPECT_OR_RETURN(
-        fileNode.getType() == vt::Directory::file,
-        void (),
-        "ValueTree node provided is not a file node"
-    );
+    if (fileNode.getType() != vt::Directory::file ||
+        !file.existsAsFile()) 
+        exc::MainProc::get::node_not_file();
 
     using namespace vt::Directory;
 
-    fileNode.setProperty (
-        File::path,
-        file.getFullPathName(),
-        nullptr
-    );
-
-    fileNode.setProperty (
-        File::name,
-        file.getFileName(),
-        nullptr
-    );
-
-    fileNode.setProperty(
-        File::valid,
-        canProcessFile(file),
-        nullptr
-    );
+    fileNode.setProperty (File::name, file.getFileName(), nullptr);
+    fileNode.setProperty (File::valid, canProcessFile(file), nullptr);
+    fileNode.setProperty (File::has_warning, false, nullptr);
+    fileNode.setProperty (File::selected, true, nullptr);
 
     if (!fileNode[File::valid])
     {
-        fileNode.setProperty(
-            File::err_msg,
-            "File format not supported",
-            nullptr
-        );
-
+        fileNode.setProperty (File::err_msg, "File format not supported", nullptr);
+        fileNode.setProperty (File::has_warning, true, nullptr);
         return;
     }
 
-    fileNode.setProperty(
-        File::has_warning,
-        false,
-        nullptr
-    );
+    auto fileHandler = std::make_unique<FileHandler>(file);
+    fileNode.setProperty (File::measured, fileHandler->isMeasured(), nullptr);
+    if (!fileNode[File::measured]) return;
 
-    fileNode.setProperty(
-        File::selected,
-        false,
-        nullptr
-    );
-
-    mFileHandler.openFile(file);
-    const bool processed = mFileHandler.hasLoudnessMetadata() &&
-                           mFileHandler.hasSamplePeakMetadata();
-
-    fileNode.setProperty(
-        File::processed,
-        processed,
-        nullptr
-    );
-
-    if (!fileNode[File::processed]) return;
-
-    fileNode.setProperty(
-        File::loudness,
-        mFileHandler.getLoudnessMetadata(),
-        nullptr
-    );
-
-    fileNode.setProperty(
-        File::peak,
-        mFileHandler.getSamplePeakMetadata(),
-        nullptr
-    );
+    fileNode.setProperty (File::loudness, fileHandler->getLoudness().value(), nullptr);
+    fileNode.setProperty (File::peak, fileHandler->getSamplePeak().value(), nullptr);
 
     if ((float)fileNode[File::peak] >= 1.f)
     {
-        fileNode.setProperty(
-            File::has_warning,
-            true,
-            nullptr
-        );
-
-        fileNode.setProperty(
-            File::err_msg,
-            "Audio is potentially peaking.",
-            nullptr
-        );
+        fileNode.setProperty (File::has_warning, true, nullptr);
+        fileNode.setProperty (File::err_msg, "Audio is potentially peaking.", nullptr);
     }
 }
-void MainProcessor::parseDirectory(juce::File directory, juce::ValueTree folderNode)
+void MainProcessor::parseDirectory(juce::ValueTree folderNode, juce::File directory)
 {
-    EXPECT_OR_RETURN(
-        folderNode.getType() == vt::Directory::folder,
-        void (),
-        "ValueTree node provided is not a folder node"
-    );
-
-    EXPECT_OR_RETURN(
-        directory.isDirectory(),
-        void (),
-        "File provided is not a directory"
-    );
+    if (folderNode.getType() != vt::Directory::folder ||
+        !directory.isDirectory())
+        exc::MainProc::get::node_not_file();
 
     using namespace vt::Directory;
 
-    folderNode.setProperty(
-        Folder::path,
-        directory.getFullPathName(),
-        nullptr
-    );
-
-    folderNode.setProperty(
-        Folder::name,
-        directory.getFileName(),
-        nullptr
-    );
+    folderNode.setProperty (Folder::name, directory.getFileName(), nullptr);
 
     auto children = directory.findChildFiles(
         juce::File::findFilesAndDirectories,
@@ -272,24 +289,19 @@ void MainProcessor::parseDirectory(juce::File directory, juce::ValueTree folderN
         if (child.existsAsFile())
         {
             juce::ValueTree childFileNode(vt::Directory::file);
-            parseFile(child, childFileNode);
+            childFileNode.setProperty(File::path, child.getFullPathName(), nullptr);
             folderNode.appendChild(childFileNode, nullptr);
         }
         else if (child.isDirectory())
         {
             juce::ValueTree childFolderNode(vt::Directory::folder);
-            parseDirectory(child, childFolderNode);
+            childFolderNode.setProperty(Folder::path, child.getFullPathName(), nullptr);
             folderNode.appendChild(childFolderNode, nullptr);
-        }
-        else
-        {
-            MY_LOG_WARNING(
-                "Item {} is not recognised as a file, nor a folder.",
-                child.getFullPathName()
-            );
         }
     }
 }
+
+//========================================
 
 int MainProcessor::countAudioFiles() const
 {
@@ -335,152 +347,3 @@ int MainProcessor::countFilesInFolderRecursively(juce::ValueTree folderNode) con
     return fileCount;
 }
 
-void MainProcessor::processFile(juce::ValueTree fileNode)
-{
-    if (mAbortFlag) { exc::MainProc::get::abort(); }
-
-    EXPECT_OR_RETURN(
-        fileNode.getType() == vt::Directory::file,
-        void (),
-        "Tried to process an item with type {} as a file. (skipped)",
-        fileNode.getType().toString()
-    );
-
-    juce::File file(fileNode[vt::Directory::File::name]);
-
-    EXPECT_OR_RETURN(
-        file.existsAsFile(),
-        void (),
-        "File does not exist: {}. (skipped)",
-        file.getFullPathName()
-    );
-
-    mRoot.getChildWithName(vt::Tree::interface).setProperty(
-        vt::Interface::current_file,
-        fileNode[vt::Directory::File::name],
-        nullptr
-    );
-
-    mFileHandler.openFile(file);
-    float loudness = 0;
-    float peak = 0;
-    const bool shouldIgnoreLoudnessTag = 
-        mRoot.getChildWithName(vt::Tree::settings)
-        [vt::Settings::ignore_loudness_tag];
-
-    if (fileNode[vt::Directory::File::processed] &&
-        !shouldIgnoreLoudnessTag)
-    {
-        loudness = mFileHandler.getLoudnessMetadata();
-        peak = mFileHandler.getSamplePeakMetadata();
-    }
-    else
-    {
-        double sampleRate = mFileHandler.getSampleRate();
-        int numberOfChannels = (int)(mFileHandler.getNumberOfChannels());
-        int samplesPerBlock = (int)(sampleRate * 0.1);
-    
-        mLoudnessProcessor.reset((float)sampleRate, numberOfChannels);
-        juce::AudioBuffer<float> buffer(numberOfChannels, samplesPerBlock);
-    
-        while (mFileHandler.readNextBlock(&buffer))
-        {
-            mLoudnessProcessor.processNext100ms(buffer);
-        }
-
-        loudness = mLoudnessProcessor.getIntegratedLoudness();
-        peak = mLoudnessProcessor.getSamplePeak();
-    }
-
-    const float target = 
-        mRoot.getChildWithName(vt::Tree::settings)
-        [vt::Settings::target_lkfs]; 
-    const float diff = target - loudness;
-    const float ratio = juce::Decibels::decibelsToGain(diff);
-
-    if ( ratio < 1.f + eps && ratio > 1.f - eps )
-    {
-        fileNode.setProperty(
-            vt::Directory::File::processed,
-            true,
-            nullptr
-        );
-        fileNode.setProperty(
-            vt::Directory::File::loudness,
-            loudness,
-            nullptr
-        );
-        fileNode.setProperty(
-            vt::Directory::File::peak,
-            peak,
-            nullptr
-        );
-        return;
-    }
-
-    const bool shouldIgnoreSamplePeak =
-        mRoot.getChildWithName(vt::Tree::settings)
-        [vt::Settings::ignore_sample_peak];
-    if (!shouldIgnoreSamplePeak)
-    {
-        float wouldBePeak = peak * ratio;
-        if (wouldBePeak > 1.f)
-        {
-            // TODO
-            // DO SOMETHING HERE
-            // maybe an exception
-        }
-    }
-
-    fileNode.setProperty(
-        vt::Directory::File::processed,
-        true,
-        nullptr
-    );
-    fileNode.setProperty(
-        vt::Directory::File::loudness,
-        target,
-        nullptr
-    );
-    fileNode.setProperty(
-        vt::Directory::File::peak,
-        peak,
-        nullptr
-    );
-
-    mFileHandler.applyGainDecibel(diff);
-    mFileHandler.writeFile();
-}
-void MainProcessor::processDirectory(juce::ValueTree directoryNode)
-{
-    if (mAbortFlag) { exc::MainProc::get::abort(); }
-
-    EXPECT_OR_RETURN(
-        directoryNode.getType() == vt::Directory::folder,
-        void (),
-        "Tried to process an item with type {} as a folder. (skipped)",
-        directoryNode.getType().toString()
-    );
-
-    int childCount = directoryNode.getNumChildren();
-    for (int i = 0; i < childCount; i++)
-    {
-        juce::ValueTree child = directoryNode.getChild(i);
-
-        if (child.getType() == vt::Directory::file)
-        {
-            processFile(child);
-        }
-        else if (child.getType() == vt::Directory::folder)
-        {
-            processDirectory(child);
-        }
-        else
-        {
-            MY_LOG_WARNING(
-                "Corrupted ValueTree Node with type {}. (skipped)",
-                child.getType().toString()
-            );
-        }
-    }
-}

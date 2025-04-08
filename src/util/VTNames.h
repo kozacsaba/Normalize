@@ -18,8 +18,7 @@ namespace norm::vt
     {
         id target_lkfs = "target_lkfs";
         id recursive_search = "recursive_search";
-        id ignore_loudness_tag = "ignore_loudness_tag"; 
-        id ignore_sample_peak = "ignore_loudness_tag";
+        id ignore_tags = "ignore_tags";
         id follow_symlinks = "follow_symlinks";
     }
 
@@ -50,7 +49,7 @@ namespace norm::vt
             id valid = "valid";
             id has_warning = "has_warning";
             id selected = "selected";
-            id processed = "processed";
+            id measured = "measured";
             id loudness = "loudness";
             id peak = "peak";
             id err_msg = "err_msg";
@@ -63,7 +62,7 @@ namespace norm::vt
     L.. settings
     |   L.. target_lkfs             [float]
     |   L.. recursive_search        [bool]
-    |   L.. ignore_loudness_tag     [bool]
+    |   L.. ignore_tags             [bool]
     |   L.. ignore_sample_peak      [bool]
     |   L.. follow_symlinks         [bool]
     L.. interface

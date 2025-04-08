@@ -72,77 +72,6 @@ public:
                     t arg1 = nullptr, u arg2 = nullptr, v arg3 = nullptr)
     {
         try
-        static juce::String printVar(const juce::var var)
-        {
-            if(var.isBool())
-            {
-                const bool v = (bool)var;
-                return v ? "true" : "false";
-            }
-
-            if(var.isDouble())
-            {
-                const double v = (double)var;
-                return juce::String(v);
-            }
-
-            if(var.isInt64() || var.isInt())
-            {
-                const juce::int64 v = (juce::int64)var;
-                return juce::String(v);
-            }
-
-            if(var.isMethod())
-            {
-                auto v = var.getNativeFunction();
-                return v ? "-some funciton-" : "-uninitialised function-";
-            }
-
-            if(var.isObject())
-            {
-                auto* p = var.getObject();
-                return p == nullptr ? "-uninitialised object-" : "-some object-";
-            }
-
-            if(var.isString())
-            {
-                return "\"" + var.toString() + "\"";
-            }
-
-            if(var.isUndefined())
-            {
-                return "-undefined-";
-            }
-
-            if(var.isVoid())
-            {
-                return "void";
-            }
-
-            if(var.isArray())
-            {
-                juce::String v = "Array [\n";
-                for(const auto& e : *(var.getArray()))
-                {
-                    v += printVar(e) + "\n";
-                }
-                v += "] // Array";
-            }
-
-            if(var.isBinaryData())
-            {
-                return "-some binary data-";
-            }
-
-            return "-invalid property-";
-        }
-
-        template<Loggable t, Loggable u, Loggable v>
-        void log_internal(const char* type, 
-                          const char* msg, 
-                          t arg1 = nullptr, 
-                          u arg2 = nullptr, 
-                          v arg3 = nullptr)
         {
             juce::StringArray args;
 
@@ -165,37 +94,6 @@ public:
             broadcastMessage(log_message);
         }
         catch (std::exception& e)
-
-        void log_ValueTree_internal(juce::ValueTree tree, int depth)
-        {
-            if(depth <= 0) return;
-            if(!tree.isValid()) return;
-
-            juce::String vtType = tree.getType().toString();
-            latestLogString = "Tree: " + vtType + " {\n";
-
-            for(int i = 0; i < tree.getNumProperties(); i++)
-            {
-                juce::Identifier propName = tree.getPropertyName(i);
-
-                latestLogString = 
-                    propName.toString() +
-                    " = " +
-                    printVar(tree[propName]) +
-                    "\n";
-            }
-
-            if(tree.getNumChildren() > 0) latestLogString = "children : [\n";
-            for(int i = 0; i < tree.getNumChildren(); i++)
-            {
-                log_ValueTree_internal(tree.getChild(i), depth-1);
-            }
-
-            latestLogString = "]} // " + vtType + "\n";
-        }
-
-        template <Loggable t>
-        void parseArg(juce::StringArray& args, t arg)
         {
             juce::String err_msg = 
             "Error: Could not process log message:\n";
@@ -319,3 +217,12 @@ public:
         throw EXCEPT;                                                           \
     })                                                                          \
 
+#define NORM_CATCH_ALL                                                          \
+catch(const std::exception& e)                                                  \
+{                                                                               \
+    MY_LOG_ERROR(                                                               \
+        "Unexpected error: {}",                                                 \
+        e.what()                                                                \
+    );                                                                          \
+}                                                                               \
+ENFORCE_SEMICOLON()                                                             \
