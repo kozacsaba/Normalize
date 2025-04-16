@@ -4,3 +4,9 @@
 [submodule "submodules/juce"]
 	path = submodules/juce
 	url = https://github.com/juce-framework/JUCE
+[submodule "submodules/mp3gain"]
+	path = submodules/mp3gain
+	url = https://github.com/elfchief/mp3gain
+[submodule "submodules/taglib"]
+	path = submodules/taglib
+	url = https://github.com/taglib/taglib
