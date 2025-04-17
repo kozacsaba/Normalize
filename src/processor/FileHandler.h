@@ -19,10 +19,17 @@ namespace norm
 
 class FileHandler
 {
-public:
+private:
     inline static const char LoudnessTag[] = "LKFS";
     inline static const char SamplePeakTag[] = "PEAK";
     inline static const char Unset_v[] = "Unset";
+
+    enum class Format
+    {
+        unknown,
+        mp3,
+        wav,
+    };
 
 public:
     /** Opens file, reads audio file properties and caches metadata (if exists).
@@ -46,17 +53,10 @@ public:
      */
     void measure();
 
-    /** Applies gain (in decibels) to the loaded audio. Throws if no audio is
-     *  loaded.
-     *  Changes loaded loudness and sample peak values (if the audio is
-     *  measured), but does not write them into metadata.
+    /** Writes file and metada (is exists) into file, with gain_dB 
+     *  amplification. Throws of no audio is loaded.
      */
-    void applyGainDecibel(float gain);
-
-    /** Writes file and metada (is exists) into file. Throws of no audio is 
-     *  loaded.
-     */
-    void writeFile();
+    void writeWithGain(float gain_dB = 0);
 
     bool isMeasured() const { return fMeasured; }
     std::optional<float> getLoudness() const 
@@ -72,12 +72,16 @@ public:
 
 private:
     bool readNextBlock(juce::AudioBuffer<float>* buffer);
+    void setFormat(juce::String format);
+    void writeFormatMP3(float gain_dB);
+    void writeFormatWav(float gain_lin);
 
     juce::AudioFormatManager mAudioFormatManager;
     std::unique_ptr<juce::AudioFormatReader> mAudioReader;
     LKFS mProcessor;
 
     juce::File mFile;
+    Format mFormat;
     juce::AudioBuffer<float> mBuffer;
     juce::AudioBuffer<float> mWorkBuffer;
     juce::int64 mPlayhead = 0;

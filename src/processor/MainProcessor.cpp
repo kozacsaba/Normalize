@@ -61,7 +61,7 @@ void MainProcessor::measure() noexcept
                               file.getFullPathName());
     
             fileHandler->measure();
-            fileHandler->writeFile();
+            fileHandler->writeWithGain();
     
             node.setProperty (vt::Directory::File::loudness,
                               fileHandler->getLoudness().value(),
@@ -127,8 +127,7 @@ void MainProcessor::normailse() noexcept
                                 juce::Decibels::decibelsToGain(gainNeeded);
             if (wouldBePeak > 1.f) exc::MainProc::get::would_peak();
 
-            fileHandler->applyGainDecibel(gainNeeded);
-            fileHandler->writeFile();
+            fileHandler->writeWithGain(gainNeeded);
 
             node.setProperty (vt::Directory::File::loudness,
                               fileHandler->getLoudness().value(),

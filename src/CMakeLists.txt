@@ -39,6 +39,8 @@ target_link_libraries(Source
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags
         juce::juce_recommended_lto_flags
+
+        mp3gain
     )
 
 target_compile_features(Source PUBLIC cxx_std_20)
