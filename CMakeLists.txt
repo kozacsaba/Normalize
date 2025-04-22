@@ -16,7 +16,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-comment")
 add_subdirectory(submodules/juce)
 add_subdirectory(submodules/googletest)
 add_subdirectory(submodules/taglib)
-include(${CMAKE_SOURCE_DIR}/mp3gain.cmake)
+include(${CMAKE_SOURCE_DIR}/src/wrapper/mp3gain.cmake)
 
 add_subdirectory(src)
 add_subdirectory(tests)

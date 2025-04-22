@@ -13,7 +13,7 @@ target_sources(mp3gain PUBLIC
     ${MP3SRC}/rg_error.c
     ${MP3SRC}/gain_analysis.c
     ${MP3SRC}/id3tag.c
-    ${MP3SRC}/replaygaindll.c
+    #${MP3SRC}/replaygaindll.c
     
     ${MP3SRC}/mpglibDBL/common.c
     ${MP3SRC}/mpglibDBL/dct64_i386.c
@@ -29,12 +29,16 @@ target_compile_options(mp3gain PRIVATE
     -Wall
 )
 
+# this should not always have WIN32 defined, only on windows
+
 target_compile_definitions(mp3gain PUBLIC
     HAVE_MEMCPY
+    WIN32
 )
 
-target_link_libraries(mp3gain PUBLIC m)
+# target_link_libraries(mp3gain PUBLIC m)
 
 target_include_directories(mp3gain PUBLIC
-    ${MP3SRC}
+    ${MP3SRC}/..
 )
+
