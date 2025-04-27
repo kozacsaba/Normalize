@@ -19,29 +19,29 @@ target_sources(Source PRIVATE
     gui/MainComponent.cpp
 )
 
-target_include_directories(Source 
-    PUBLIC 
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${JUCE_SOURCE_DIR}/modules
+target_include_directories(Source PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${JUCE_SOURCE_DIR}/modules
+    ${MP3GAIN_SOURCE_DIR}/mp3gain
 )
 
 # juce_add_binary_data(GuiAppData SOURCES ...)
 
-target_link_libraries(Source
-        # GuiAppData
-        juce::juce_core
-        juce::juce_data_structures
-        juce::juce_events
-        juce::juce_graphics
-        juce::juce_audio_basics
-        juce::juce_audio_formats
-        juce::juce_gui_basics
-        juce::juce_recommended_config_flags
-        juce::juce_recommended_warning_flags
-        juce::juce_recommended_lto_flags
+target_link_libraries(Source PUBLIC
+    mp3gain
 
-        mp3gain
-    )
+    # GuiAppData
+    juce::juce_core
+    juce::juce_data_structures
+    juce::juce_events
+    juce::juce_graphics
+    juce::juce_audio_basics
+    juce::juce_audio_formats
+    juce::juce_gui_basics
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_warning_flags
+    juce::juce_recommended_lto_flags
+)
 
 target_compile_features(Source PUBLIC cxx_std_20)
 

@@ -1,7 +1,7 @@
 #include "FileHandler.h"
 #include "util/Logger.h"
 #include "util/Expections.h"
-#include "wrapper/mp3gain.h"
+#include "wrapper/mp3gain.hpp"
 
 using namespace norm;
 
