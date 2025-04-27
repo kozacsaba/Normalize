@@ -170,39 +170,52 @@ void FileHandler::setFormat(juce::String format)
     }
 }
 
-void FileHandler::writeFormatWav(float gain_lin)
+void FileHandler::writeFormatWav(float gain_dB)
 {
+    const float gain_lin = juce::Decibels::decibelsToGain(gain_dB);
     mBuffer.applyGain(gain_lin);
 
-    auto* format = mAudioFormatManager.findFormatForFileExtension(
-        mFile.getFileExtension());
-
-    // >>>>> metadata
-    if (fMeasured)
-    {
-        mFileAttributes.metadata.set(LoudnessTag, juce::String(mLoudness));
-        mFileAttributes.metadata.set(SamplePeakTag, juce::String(mPeak));
-    }
-    // <<<<< metadata
+    auto format = std::make_unique<juce::WavAudioFormat>();
+    mFile.deleteFile();
 
     // will be deleted by the writer if created successfully
     auto* outStream = new juce::FileOutputStream(mFile);
 
-    auto writer = std::unique_ptr<juce::AudioFormatWriter>(
-        format->createWriterFor(
-            outStream,
-            mFileAttributes.sampleRate,
-            mFileAttributes.numberOfChannels,
-            (int)mAudioReader->bitsPerSample,
-            // note:
-            // metadata is written into file here too, but this is actually
-            // fine, because this is not the custom metadata for storing
-            // loudness and peak data, but standard data, like artist,
-            // album, title, etc.
-            mFileAttributes.metadata,
-            0));
+    //
+    const double _sampleRateToUse = mFileAttributes.sampleRate;
+    const unsigned int _numberOfChannels = mFileAttributes.numberOfChannels;
+    const int _bitsPerSample = (int) mAudioReader->bitsPerSample;
+    // note:
+    // metadata is written into file here too, but this is actually
+    // fine, because this is not the custom metadata for storing
+    // loudness and peak data, but standard data, like artist,
+    // album, title, etc.
+    const juce::StringPairArray _metadataValues = mFileAttributes.metadata;
+    const int _qualityOptionIndex = 0; 
+    //
 
-    if (writer == nullptr)
+    auto* writer = format->createWriterFor(
+        outStream,
+        _sampleRateToUse,
+        _numberOfChannels,
+        _bitsPerSample,
+        _metadataValues,
+        _qualityOptionIndex);
+    
+    //    auto writer = std::unique_ptr<juce::AudioFormatWriter>(pWriter);
+
+    if (writer)
+    {
+        writer->writeFromAudioSampleBuffer (mBuffer,
+            0, 
+            (int)mFileAttributes.length);
+
+        const bool flushed = writer->flush();
+        jassert(flushed);
+
+        delete writer;
+    }
+    else
     {
         // This is kinda silly on JUCE's part, because if the writer was
         // created successfully, it does own the stream, if it wasn't, then
@@ -215,18 +228,20 @@ void FileHandler::writeFormatWav(float gain_lin)
         exc::FileHandler::get::no_writer_for_File();
     }
 
-    writer->writeFromAudioSampleBuffer (mBuffer,
-                                        0, 
-                                        (int)mFileAttributes.length);
-
-    const bool flushed = writer->flush();
-    jassert(flushed);
+    // >>>>> metadata
+    if (fMeasured)
+    {
+        mFileAttributes.metadata.set(LoudnessTag, juce::String(mLoudness));
+        mFileAttributes.metadata.set(SamplePeakTag, juce::String(mPeak));
+    }
+    // <<<<< metadata
 }
 void FileHandler::writeFormatMP3(float gain_dB)
 {
     // sample_value = quantized_value × 2^((global_gain - 210) / 4)
-    float scale = std::sqrt(std::sqrt(2.f));
-    float global_gain = gain_dB / scale;
+    const float lin_scale = std::sqrt(std::sqrt(2.f));
+    const float scale = 20.f * std::log10(lin_scale);
+    const float global_gain = gain_dB / scale;
     std::string fileName = mFile.getFullPathName().toStdString();
 
     wrap_changeGain(

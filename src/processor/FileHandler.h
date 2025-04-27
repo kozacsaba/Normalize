@@ -74,7 +74,7 @@ private:
     bool readNextBlock(juce::AudioBuffer<float>* buffer);
     void setFormat(juce::String format);
     void writeFormatMP3(float gain_dB);
-    void writeFormatWav(float gain_lin);
+    void writeFormatWav(float gain_dB);
 
     juce::AudioFormatManager mAudioFormatManager;
     std::unique_ptr<juce::AudioFormatReader> mAudioReader;

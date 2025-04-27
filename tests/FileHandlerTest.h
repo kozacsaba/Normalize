@@ -9,6 +9,7 @@ class FileHandlerTest : public testing::Test
 {
 protected:
     const float eps = 0.05f;
+    const float mp3delta = 1.5f / 2.f;
     juce::File workdir;
 
     void SetUp() override
@@ -52,119 +53,174 @@ protected:
 };
 
 //==============================================================================
+// MEASURE TEST
 
-TEST_F(FileHandlerTest, Measure_file_1)
+TEST_F(FileHandlerTest, measure_wav_23lkfs)
 {
-    auto file = workdir.getChildFile("1770-2 Conf Mono Voice+Music-23LKFS.wav");
-    auto handler = std::make_unique<norm::FileHandler>(file);
+    auto testfile = workdir.getChildFile("1770-2_Comp_23LKFS_500Hz_2ch.wav");
+    ASSERT_TRUE(testfile.existsAsFile());
+
+    auto handler = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(handler);
 
     handler->loadAudio();
     handler->measure();
-    ASSERT_TRUE(handler->isMeasured());
 
-    const float m_val = handler->getLoudness().value();
-    const float e_val = -23.f;
+    const float measured = handler->getLoudness().value();
+    const float expected = -23.f;
 
-    EXPECT_GT(m_val, e_val - eps);
-    EXPECT_LT(m_val, e_val + eps);
+    EXPECT_GT(measured, expected - eps);
+    EXPECT_LT(measured, expected + eps);
 }
 
-TEST_F(FileHandlerTest, Measure_file_2)
+TEST_F(FileHandlerTest, measure_wav_18lkfs)
 {
-    auto file = workdir.getChildFile("1770-2 Conf Stereo VinL+R-24LKFS.wav");
-    auto handler = std::make_unique<norm::FileHandler>(file);
+    auto testfile = workdir.getChildFile("1770-2_Comp_18LKFS_FrequencySweep.wav");
+    ASSERT_TRUE(testfile.existsAsFile());
+
+    auto handler = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(handler);
 
     handler->loadAudio();
     handler->measure();
-    ASSERT_TRUE(handler->isMeasured());
 
-    const float m_val = handler->getLoudness().value();
-    const float e_val = -24.f;
+    const float measured = handler->getLoudness().value();
+    const float expected = -18.f;
 
-    EXPECT_GT(m_val, e_val - eps);
-    EXPECT_LT(m_val, e_val + eps);
+    EXPECT_GT(measured, expected - eps);
+    EXPECT_LT(measured, expected + eps);
 }
 
-TEST_F(FileHandlerTest, Write_Read)
+//==============================================================================
+// AUDIO FILE WRITE TEST
+
+TEST_F(FileHandlerTest, write_wav_1)
 {
-    auto file = workdir.getChildFile("Koza - Bass - shape 03 - 128kbps.mp3");
-    auto handler_1 = std::make_unique<norm::FileHandler>(file);
-    ASSERT_FALSE(handler_1->isMeasured());
+    auto testfile = workdir.getChildFile("1770-2 Conf Mono Voice+Music-23LKFS.wav");
+    ASSERT_TRUE(testfile.existsAsFile());
+    const float original = -23.f;
+    const float diff = -6.f;
 
-    handler_1->loadAudio();
-    handler_1->measure();
-    ASSERT_TRUE(handler_1->isMeasured());
-    const float m_val_1 = handler_1->getLoudness().value();
-    handler_1->writeFile();
+    auto handler = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(handler);
 
-    // destroy handler instance
-    handler_1.reset();
+    handler->loadAudio();
+    handler->writeWithGain(diff);
+    handler = nullptr;
 
-    auto handler_2 = std::make_unique<norm::FileHandler>(file);
-    ASSERT_TRUE(handler_2->isMeasured());
-    const float m_val_2 = handler_2->getLoudness().value();
+    auto checker = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(checker);
 
-    ASSERT_FLOAT_EQ(m_val_1, m_val_2);
+    checker->loadAudio();
+    checker->measure();
+    const float modified = checker->getLoudness().value();
+
+    EXPECT_GT(modified, original + diff - eps);
+    EXPECT_LT(modified, original + diff + eps);
 }
 
-TEST_F(FileHandlerTest, Att10_WR)
+TEST_F(FileHandlerTest, write_wav_2)
 {
-    const float attenuation = 10.f;
-    auto file = workdir.getChildFile("Koza - Drumloop - leave me - 192kbps.mp3");
-    auto handler_1 = std::make_unique<norm::FileHandler>(file);
-    ASSERT_FALSE(handler_1->isMeasured());
+    auto testfile = workdir.getChildFile("1770-2 Conf Mono Voice+Music-24LKFS.wav");
+    ASSERT_TRUE(testfile.existsAsFile());
+    const float original = -24.f;
+    const float diff = -3.f;
 
-    handler_1->loadAudio();
-    handler_1->measure();
-    ASSERT_TRUE(handler_1->isMeasured());
-    const float m_val_1 = handler_1->getLoudness().value();
-    handler_1->applyGainDecibel(-attenuation);
-    handler_1->writeFile();
+    auto handler = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(handler);
 
-    // destroy handler instance
-    handler_1.reset();
+    handler->loadAudio();
+    handler->writeWithGain(diff);
+    handler = nullptr;
 
-    auto handler_2 = std::make_unique<norm::FileHandler>(file);
-    ASSERT_TRUE(handler_2->isMeasured());
-    const float m_val_2 = handler_2->getLoudness().value();
+    auto checker = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(checker);
 
-    EXPECT_FLOAT_EQ(m_val_1-attenuation, m_val_2);
+    checker->loadAudio();
+    checker->measure();
+    const float modified = checker->getLoudness().value();
 
-    handler_2->loadAudio();
-    handler_2->measure();
-    const float m_val_2_measured = handler_2->getLoudness().value();
-
-    EXPECT_GT(m_val_2_measured, m_val_2 - eps);
-    EXPECT_LT(m_val_2_measured, m_val_2 + eps);
+    EXPECT_GT(modified, original + diff - eps);
+    EXPECT_LT(modified, original + diff + eps);
 }
 
-TEST_F(FileHandlerTest, Att18_WR)
+TEST_F(FileHandlerTest, write_mp3_1)
 {
-    const float attenuation = 18.f;
-    auto file = workdir.getChildFile("Koza - SFX - atmo - wonder (E) - 320kbps.mp3");
-    auto handler_1 = std::make_unique<norm::FileHandler>(file);
-    ASSERT_FALSE(handler_1->isMeasured());
+    auto testfile = workdir.getChildFile("Koza - Bass - shape 03 - 128kbps.mp3");
+    ASSERT_TRUE(testfile.existsAsFile());
+    const float diff = -3.f;
 
-    handler_1->loadAudio();
-    handler_1->measure();
-    ASSERT_TRUE(handler_1->isMeasured());
-    const float m_val_1 = handler_1->getLoudness().value();
-    handler_1->applyGainDecibel(-attenuation);
-    handler_1->writeFile();
+    auto handler = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(handler);
 
-    // destroy handler instance
-    handler_1.reset();
+    handler->loadAudio();
+    handler->measure();
+    const float original = handler->getLoudness().value();
+    handler->writeWithGain(diff);
+    handler = nullptr;
 
-    auto handler_2 = std::make_unique<norm::FileHandler>(file);
-    ASSERT_TRUE(handler_2->isMeasured());
-    const float m_val_2 = handler_2->getLoudness().value();
+    auto checker = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(checker);
 
-    EXPECT_FLOAT_EQ(m_val_1-attenuation, m_val_2);
+    checker->loadAudio();
+    checker->measure();
+    const float modified = checker->getLoudness().value();
 
-    handler_2->loadAudio();
-    handler_2->measure();
-    const float m_val_2_measured = handler_2->getLoudness().value();
-
-    EXPECT_GT(m_val_2_measured, m_val_2 - eps);
-    EXPECT_LT(m_val_2_measured, m_val_2 + eps);
+    EXPECT_GT(modified, original + diff - eps - mp3delta);
+    EXPECT_LT(modified, original + diff + eps + mp3delta);
 }
+
+TEST_F(FileHandlerTest, write_mp3_2)
+{
+    auto testfile = workdir.getChildFile("Koza - Drumloop - leave me - 192kbps.mp3");
+    ASSERT_TRUE(testfile.existsAsFile());
+    const float diff = -9.f;
+
+    auto handler = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(handler);
+
+    handler->loadAudio();
+    handler->measure();
+    const float original = handler->getLoudness().value();
+    handler->writeWithGain(diff);
+    handler = nullptr;
+
+    auto checker = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(checker);
+
+    checker->loadAudio();
+    checker->measure();
+    const float modified = checker->getLoudness().value();
+
+    EXPECT_GT(modified, original + diff - eps - mp3delta);
+    EXPECT_LT(modified, original + diff + eps + mp3delta);
+}
+
+TEST_F(FileHandlerTest, write_mp3_3)
+{
+    auto testfile = workdir.getChildFile("Koza - SFX - atmo - wonder (E) - 320kbps.mp3");
+    ASSERT_TRUE(testfile.existsAsFile());
+    const float diff = +5.f;
+
+    auto handler = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(handler);
+
+    handler->loadAudio();
+    handler->measure();
+    const float original = handler->getLoudness().value();
+    handler->writeWithGain(diff);
+    handler = nullptr;
+
+    auto checker = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(checker);
+
+    checker->loadAudio();
+    checker->measure();
+    const float modified = checker->getLoudness().value();
+
+    EXPECT_GT(modified, original + diff - eps - mp3delta);
+    EXPECT_LT(modified, original + diff + eps + mp3delta);
+}
+
+//==============================================================================
+// METADATA TEST

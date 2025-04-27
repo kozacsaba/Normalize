@@ -14,13 +14,12 @@
 
 // include headers containing the unit tests here
 
-#include "HelloTest.h"
-#include "LoggerTest.h"
-#include "FilterTest.h"
-#include "CircularTest.h"
-#include "LKFSTest.h"
-// needs proper mp3 handling, which juce is incapable of
-//#include "FileHandlerTest.h"
+//#include "HelloTest.h"
+//#include "LoggerTest.h"
+//#include "FilterTest.h"
+//#include "CircularTest.h"
+//#include "LKFSTest.h"
+#include "FileHandlerTest.h"
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);

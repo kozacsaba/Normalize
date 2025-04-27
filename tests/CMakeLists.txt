@@ -24,6 +24,8 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
     TEST_AUDIO_DIR="${TEST_AUDIO_DIR}"
 )
 
+target_compile_definitions(mp3gain PUBLIC EXCLUDE_MAIN)
+
 message(STATUS "Test Audio Directory is set to ${TEST_AUDIO_DIR}")
 
 include(GoogleTest)
