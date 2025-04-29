@@ -181,29 +181,21 @@ void FileHandler::writeFormatWav(float gain_dB)
     // will be deleted by the writer if created successfully
     auto* outStream = new juce::FileOutputStream(mFile);
 
-    //
-    const double _sampleRateToUse = mFileAttributes.sampleRate;
-    const unsigned int _numberOfChannels = mFileAttributes.numberOfChannels;
-    const int _bitsPerSample = (int) mAudioReader->bitsPerSample;
-    // note:
-    // metadata is written into file here too, but this is actually
-    // fine, because this is not the custom metadata for storing
-    // loudness and peak data, but standard data, like artist,
-    // album, title, etc.
-    const juce::StringPairArray _metadataValues = mFileAttributes.metadata;
-    const int _qualityOptionIndex = 0; 
-    //
-
-    auto* writer = format->createWriterFor(
-        outStream,
-        _sampleRateToUse,
-        _numberOfChannels,
-        _bitsPerSample,
-        _metadataValues,
-        _qualityOptionIndex);
+    auto writer = std::unique_ptr<juce::AudioFormatWriter>(
+        format->createWriterFor(
+            outStream,
+            mFileAttributes.sampleRate,
+            mFileAttributes.numberOfChannels,
+            (int) mAudioReader->bitsPerSample,
+            // note:
+            // metadata is written into file here too, but this is actually
+            // fine, because this is not the custom metadata for storing
+            // loudness and peak data, but standard data, like artist,
+            // album, title, etc.
+            mFileAttributes.metadata,
+            0
+    ));
     
-    //    auto writer = std::unique_ptr<juce::AudioFormatWriter>(pWriter);
-
     if (writer)
     {
         writer->writeFromAudioSampleBuffer (mBuffer,
@@ -212,8 +204,6 @@ void FileHandler::writeFormatWav(float gain_dB)
 
         const bool flushed = writer->flush();
         jassert(flushed);
-
-        delete writer;
     }
     else
     {

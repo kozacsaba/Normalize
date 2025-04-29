@@ -14,11 +14,11 @@
 
 // include headers containing the unit tests here
 
-//#include "HelloTest.h"
-//#include "LoggerTest.h"
-//#include "FilterTest.h"
-//#include "CircularTest.h"
-//#include "LKFSTest.h"
+#include "HelloTest.h"
+#include "LoggerTest.h"
+#include "FilterTest.h"
+#include "CircularTest.h"
+#include "LKFSTest.h"
 #include "FileHandlerTest.h"
 
 int main(int argc, char **argv) {
