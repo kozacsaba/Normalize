@@ -47,7 +47,7 @@ namespace MainProc
 
     enum class ExcType : int
     {
-        abort = 0,
+        abort,
         root_dir_unset,
         root_dir_missing,
         node_not_file,
@@ -121,6 +121,7 @@ namespace FileHandler
         no_writer_for_file,
         insufficient_buffer,
         no_audio_loaded,
+        format_not_supoprted,
 
         numberOfTypes
     };
@@ -131,6 +132,7 @@ namespace FileHandler
         {ExcType::no_writer_for_file, "Could not create writer for file."},
         {ExcType::insufficient_buffer, "Buffer is insufficient for one audio block."},
         {ExcType::no_audio_loaded, "Audio is not loaded into the FileHandler from the File."},
+        {ExcType::format_not_supoprted, "This audio format is not yet supported."}
     };
 
     NORM_DEF_EXC;
@@ -141,6 +143,7 @@ namespace FileHandler
         inline void no_writer_for_File() { throw exception(ExcType::no_writer_for_file); }
         inline void insufficient_buffer() { throw exception(ExcType::insufficient_buffer); }
         inline void no_audio_loaded() { throw exception(ExcType::no_audio_loaded); }
+        inline void format_not_supported() { throw exception(ExcType::format_not_supoprted); }
     }
 
 } // namespace FileHandler
