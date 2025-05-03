@@ -1,6 +1,6 @@
 # Source Library ###############################################################
 
-message(STATUS "### Configuring Source Library ###")
+message(STATUS ">>>>> Configuring Source Library")
 
 add_library(Source)
 
@@ -23,12 +23,19 @@ target_include_directories(Source PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${JUCE_SOURCE_DIR}/modules
     ${MP3GAIN_SOURCE_DIR}/mp3gain
+    ${TAGLIB_ROOT}/taglib
+    ${TAGLIB_ROOT}/taglib/toolkit
+    ${TAGLIB_ROOT}/taglib/riff
+    ${TAGLIB_ROOT}/taglib/mpeg
+    ${TAGLIB_ROOT}/taglib/mpeg/id3v2
+    ${TAGLIB_ROOT}/taglib/mpeg/id3v2/frames
 )
 
 # juce_add_binary_data(GuiAppData SOURCES ...)
 
 target_link_libraries(Source PUBLIC
     mp3gain
+    tag
 
     # GuiAppData
     juce::juce_core
@@ -46,6 +53,7 @@ target_link_libraries(Source PUBLIC
 target_compile_features(Source PUBLIC cxx_std_20)
 
 target_compile_definitions(Source PUBLIC
+    # JUCE
     JUCE_WEB_BROWSER=0  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_gui_app` call
     JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_gui_app` call
     JUCE_APPLICATION_NAME_STRING="${PREDEF_PROJECT_NAME}"
@@ -53,9 +61,11 @@ target_compile_definitions(Source PUBLIC
     JUCE_USE_MP3AUDIOFORMAT
 )
 
+message(STATUS "<<<<< Configured Source successfully")
+
 # App ##########################################################################
 
-message(STATUS "### Configuring Application ###")
+message(STATUS ">>>>> Configuring Application")
 
 project("${PREDEF_PROJECT_NAME}App" VERSION ${PREDEF_PROJECT_VERSION})
 
@@ -70,4 +80,4 @@ juce_add_gui_app(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME} PUBLIC Source)
 
-#target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+message(STATUS "<<<<< Configured Application successfully")

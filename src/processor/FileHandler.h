@@ -22,7 +22,6 @@ class FileHandler
 private:
     inline static const char LoudnessTag[] = "LKFS";
     inline static const char SamplePeakTag[] = "PEAK";
-    inline static const char Unset_v[] = "Unset";
 
     enum class Format
     {

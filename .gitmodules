@@ -10,3 +10,6 @@
 [submodule "submodules/mp3gain"]
 	path = submodules/mp3gain
 	url = https://github.com/kozacsaba/mp3gain.git
+[submodule "submodules/zlib"]
+	path = submodules/zlib
+	url = https://github.com/madler/zlib.git

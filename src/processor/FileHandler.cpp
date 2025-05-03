@@ -2,6 +2,7 @@
 #include "util/Logger.h"
 #include "util/Expections.h"
 #include "wrapper/mp3gain.hpp"
+#include "wav/wavfile.h"
 
 using namespace norm;
 
@@ -36,15 +37,15 @@ FileHandler::FileHandler(juce::File file)
     bool tmp_isMeasured = true;
 
     juce::String loudnessMetadata =
-        mFileAttributes.metadata.getValue(LoudnessTag, Unset_v);
-    if (loudnessMetadata == Unset_v)
+        mFileAttributes.metadata.getValue(LoudnessTag, "null");
+    if (loudnessMetadata == "null")
         tmp_isMeasured = false;
     else
         mLoudness = loudnessMetadata.getFloatValue();
 
     juce::String samplePeakMetadata =
-        mFileAttributes.metadata.getValue(SamplePeakTag, Unset_v);
-    if (samplePeakMetadata == Unset_v)
+        mFileAttributes.metadata.getValue(SamplePeakTag, "null");
+    if (samplePeakMetadata == "null")
         tmp_isMeasured = false;
     else
         mPeak = samplePeakMetadata.getFloatValue();
@@ -187,7 +188,7 @@ void FileHandler::writeFormatWav(float gain_dB)
             mFileAttributes.sampleRate,
             mFileAttributes.numberOfChannels,
             (int) mAudioReader->bitsPerSample,
-            // note:
+            // Note:
             // metadata is written into file here too, but this is actually
             // fine, because this is not the custom metadata for storing
             // loudness and peak data, but standard data, like artist,
@@ -207,6 +208,7 @@ void FileHandler::writeFormatWav(float gain_dB)
     }
     else
     {
+        // Note:
         // This is kinda silly on JUCE's part, because if the writer was
         // created successfully, it does own the stream, if it wasn't, then
         // it doesn't. So we cannot allocate in the constructor argument
@@ -221,8 +223,7 @@ void FileHandler::writeFormatWav(float gain_dB)
     // >>>>> metadata
     if (fMeasured)
     {
-        mFileAttributes.metadata.set(LoudnessTag, juce::String(mLoudness));
-        mFileAttributes.metadata.set(SamplePeakTag, juce::String(mPeak));
+        // taglib
     }
     // <<<<< metadata
 }
