@@ -86,11 +86,9 @@ private:
     juce::int64 mPlayhead = 0;
 
     struct {
-        juce::StringPairArray metadata;
         unsigned int numberOfChannels = 0;
         juce::int64 length = 0;
         double sampleRate = 0;
-        int qualityOptionIndex = 0;
     } mFileAttributes;
 
     bool fMeasured = false;

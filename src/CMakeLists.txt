@@ -36,6 +36,7 @@ target_include_directories(Source PUBLIC
 target_link_libraries(Source PUBLIC
     mp3gain
     tag
+    zlibstatic
 
     # GuiAppData
     juce::juce_core
@@ -53,12 +54,13 @@ target_link_libraries(Source PUBLIC
 target_compile_features(Source PUBLIC cxx_std_20)
 
 target_compile_definitions(Source PUBLIC
-    # JUCE
     JUCE_WEB_BROWSER=0  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_gui_app` call
     JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_gui_app` call
     JUCE_APPLICATION_NAME_STRING="${PREDEF_PROJECT_NAME}"
     JUCE_APPLICATION_VERSION_STRING="${PREDEF_PROJECT_VERSION}"
     JUCE_USE_MP3AUDIOFORMAT
+
+    TAGLIB_STATIC
 )
 
 message(STATUS "<<<<< Configured Source successfully")
