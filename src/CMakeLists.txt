@@ -63,6 +63,10 @@ target_compile_definitions(Source PUBLIC
     TAGLIB_STATIC
 )
 
+target_compile_definitions(mp3gain PUBLIC
+    MP3GAIN_SILENT    
+)
+
 message(STATUS "<<<<< Configured Source successfully")
 
 # App ##########################################################################
