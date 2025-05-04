@@ -2,12 +2,17 @@
 #include "util/Logger.h"
 #include "util/Expections.h"
 #include "wrapper/mp3gain.hpp"
+#include "wav/wavfile.h"
+#include "mpegfile.h"
+#include "textidentificationframe.h"
+#include "tfilestream.h"
 
 using namespace norm;
 
 FileHandler::FileHandler(juce::File file)
     : mFile(file)
     , mFormat(Format::unknown)
+    , fMeasured(false)
 {
     mAudioFormatManager.registerBasicFormats();
 
@@ -25,33 +30,28 @@ FileHandler::FileHandler(juce::File file)
         mSamplesPerBlock
     );
 
-    // >>>>> metadata will be handled in a different way
+    switch (mFormat)
     {
-    mFileAttributes.metadata = mAudioReader->metadataValues;
-    }
-    // <<<<<
-
-    // >>>>> metadata will be handled in a different way
+    case Format::wav:
     {
-    bool tmp_isMeasured = true;
-
-    juce::String loudnessMetadata =
-        mFileAttributes.metadata.getValue(LoudnessTag, Unset_v);
-    if (loudnessMetadata == Unset_v)
-        tmp_isMeasured = false;
-    else
-        mLoudness = loudnessMetadata.getFloatValue();
-
-    juce::String samplePeakMetadata =
-        mFileAttributes.metadata.getValue(SamplePeakTag, Unset_v);
-    if (samplePeakMetadata == Unset_v)
-        tmp_isMeasured = false;
-    else
-        mPeak = samplePeakMetadata.getFloatValue();
-
-    fMeasured = tmp_isMeasured;
+        TagLib::RIFF::WAV::File wavFile(
+            mFile.getFullPathName().toStdString().c_str());
+        ID3Tag* tag = wavFile.ID3v2Tag();
+        parseID3v2Tag(tag);
+        break;
     }
-    // <<<<<
+    case Format::mp3:
+    {
+        TagLib::MPEG::File mp3File(
+            mFile.getFullPathName().toStdString().c_str());
+        ID3Tag* tag = mp3File.ID3v2Tag();
+        parseID3v2Tag(tag);
+        break;
+    }
+    case Format::unknown:
+    default:
+        exc::FileHandler::get::format_not_supported();
+    }
 }
 FileHandler::~FileHandler() 
 {
@@ -64,15 +64,15 @@ bool FileHandler::loadAudio()
     mPlayhead = 0;
 
     mBuffer.setSize ((int)mFileAttributes.numberOfChannels, 
-                        (int)mFileAttributes.length);
+                     (int)mFileAttributes.length);
 
     // TODO: audio might not fit in one buffer - issue #25
     bool success = mAudioReader->read (&mBuffer,
-                                        0,
-                                        (int) mFileAttributes.length,
-                                        0,
-                                        true,
-                                        true);
+                                       0,
+                                       (int) mFileAttributes.length,
+                                       0,
+                                       true,
+                                       true);
 
     fAudioLoaded = success;
     return fAudioLoaded;
@@ -83,7 +83,7 @@ void FileHandler::measure()
 
     mPlayhead = 0;
     mProcessor.reset (mFileAttributes.sampleRate, 
-                        (int) mFileAttributes.numberOfChannels);
+                      (int) mFileAttributes.numberOfChannels);
 
     while(readNextBlock(&mWorkBuffer))
     {
@@ -124,6 +124,7 @@ void FileHandler::writeWithGain(float gain_dB)
 
 bool FileHandler::readNextBlock(juce::AudioBuffer<float>* buffer)
 {
+    // last block should be discarded if incomplete, according to ITU BS.1770-5
     if (mPlayhead + mSamplesPerBlock > mFileAttributes.length) return false;
 
     if (!fAudioLoaded) exc::FileHandler::get::no_audio_loaded();
@@ -170,15 +171,83 @@ void FileHandler::setFormat(juce::String format)
     }
 }
 
+void FileHandler::parseID3v2Tag(ID3Tag* tag)
+{
+    auto lkfs = TagLib::ID3v2::UserTextIdentificationFrame::find(tag, LoudnessTag);
+    auto peak = TagLib::ID3v2::UserTextIdentificationFrame::find(tag, SamplePeakTag);
+    if(!lkfs || !peak) return;
+
+    const TagLib::StringList& lkfsFields = lkfs->fieldList();
+    const TagLib::StringList& peakFields = peak->fieldList();
+
+    if(lkfsFields.isEmpty() || peakFields.isEmpty()) return;
+
+    const std::string lkfsStr = lkfsFields[1].to8Bit();
+    const std::string peakStr = peakFields[1].to8Bit();
+
+    mLoudness = std::stof(lkfsStr);
+    mPeak = std::stof(peakStr);
+    fMeasured = true;
+}
+void FileHandler::deepCopyRIFF(RIFFTag* source, RIFFTag* target)
+{
+    const auto& flm = source->fieldListMap();
+    for(auto& field : flm)
+    {
+        target->setFieldText(field.first, field.second);
+    }
+}
+void FileHandler::deepCopyID3v2(ID3Tag* source, ID3Tag* target)
+{
+    while(!target->frameListMap().isEmpty())
+    {
+        target->removeFrames(
+            target->frameListMap().begin()->first
+        );
+    }
+
+    auto* tagHeader = source->header();
+    auto& fl = source->frameList();
+    for(auto* frame : fl)
+    {
+        target->addFrame(TagLib::ID3v2::FrameFactory::instance()->createFrame(
+            frame->render(), tagHeader));
+    }
+}
+
 void FileHandler::writeFormatWav(float gain_dB)
 {
+    // save metadata ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    std::unique_ptr<RIFFTag> riffData = nullptr;
+    std::unique_ptr<ID3Tag> id3v2Data = nullptr;
+
+    auto wavFile = std::make_unique<TagLib::RIFF::WAV::File>(
+        mFile.getFullPathName().toStdString().c_str());
+
+    if(wavFile->hasInfoTag())
+    {
+        riffData = std::make_unique<RIFFTag>();
+        deepCopyRIFF(wavFile->InfoTag(), riffData.get());
+    }
+
+    if(wavFile->hasID3v2Tag())
+    {
+        id3v2Data = std::make_unique<ID3Tag>();
+        deepCopyID3v2(wavFile->ID3v2Tag(), id3v2Data.get());
+    }
+
+    wavFile.reset();
+
+    // apply gain (involves deleting and rewriting file) ~~~~~~~~~~~~~~~~~~~~~~~
+
     const float gain_lin = juce::Decibels::decibelsToGain(gain_dB);
     mBuffer.applyGain(gain_lin);
 
     auto format = std::make_unique<juce::WavAudioFormat>();
     mFile.deleteFile();
 
-    // will be deleted by the writer if created successfully
+    // will be owned by the writer if created successfully
     auto* outStream = new juce::FileOutputStream(mFile);
 
     auto writer = std::unique_ptr<juce::AudioFormatWriter>(
@@ -187,12 +256,7 @@ void FileHandler::writeFormatWav(float gain_dB)
             mFileAttributes.sampleRate,
             mFileAttributes.numberOfChannels,
             (int) mAudioReader->bitsPerSample,
-            // note:
-            // metadata is written into file here too, but this is actually
-            // fine, because this is not the custom metadata for storing
-            // loudness and peak data, but standard data, like artist,
-            // album, title, etc.
-            mFileAttributes.metadata,
+            {},
             0
     ));
     
@@ -207,24 +271,51 @@ void FileHandler::writeFormatWav(float gain_dB)
     }
     else
     {
-        // This is kinda silly on JUCE's part, because if the writer was
-        // created successfully, it does own the stream, if it wasn't, then
-        // it doesn't. So we cannot allocate in the constructor argument
-        // list - to enforce ownership relations - because that could leave
-        // us with leaking memory. We have to create a raw pointer and 
-        // either manually manage it or leave it to the writer, depending on
-        // whether it could be created successfully or not.
         delete outStream;
         exc::FileHandler::get::no_writer_for_File();
     }
+    writer = nullptr;
 
-    // >>>>> metadata
+    // restore metadata ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    auto fileStream = std::make_unique<TagLib::FileStream>(
+        mFile.getFullPathName().toStdString().c_str(), false);
+    wavFile = std::make_unique<TagLib::RIFF::WAV::File>(
+        fileStream.get());
+    
+    if(riffData)
+        deepCopyRIFF(riffData.get(), wavFile->InfoTag());
+    if(id3v2Data)
+        deepCopyID3v2(id3v2Data.get(), wavFile->ID3v2Tag());
+
+    // write custom tags ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     if (fMeasured)
     {
-        mFileAttributes.metadata.set(LoudnessTag, juce::String(mLoudness));
-        mFileAttributes.metadata.set(SamplePeakTag, juce::String(mPeak));
+        using namespace TagLib;
+
+        ID3Tag* tag = wavFile->ID3v2Tag();
+
+        auto lkfsFrame = std::make_unique<ID3v2::UserTextIdentificationFrame>();
+        lkfsFrame->setDescription(LoudnessTag);
+        lkfsFrame->setText(std::to_string(mLoudness));
+        if(auto oldFrame = ID3v2::UserTextIdentificationFrame::find(tag, LoudnessTag))
+        {
+            tag->removeFrame(oldFrame, true);
+        }
+        tag->addFrame(lkfsFrame.release());
+
+        auto peakFrame = std::make_unique<ID3v2::UserTextIdentificationFrame>();
+        peakFrame->setDescription(SamplePeakTag);
+        peakFrame->setText(std::to_string(mPeak));
+        if(auto oldFrame = ID3v2::UserTextIdentificationFrame::find(tag, SamplePeakTag))
+        {
+            tag->removeFrame(oldFrame, true);
+        }
+        tag->addFrame(peakFrame.release());
     }
-    // <<<<< metadata
+
+    wavFile->save();
 }
 void FileHandler::writeFormatMP3(float gain_dB)
 {
@@ -238,4 +329,33 @@ void FileHandler::writeFormatMP3(float gain_dB)
         fileName.data(),
         (int)std::roundf(global_gain),
         (int)std::roundf(global_gain));
+
+    if(fMeasured)
+    {
+        using namespace TagLib;
+
+        auto mp3File = std::make_unique<MPEG::File>(
+            mFile.getFullPathName().toStdString().c_str());
+        ID3Tag* tag = mp3File->ID3v2Tag();
+
+        auto lkfsFrame = std::make_unique<ID3v2::UserTextIdentificationFrame>();
+        lkfsFrame->setDescription(LoudnessTag);
+        lkfsFrame->setText(std::to_string(mLoudness));
+        if(auto oldFrame = ID3v2::UserTextIdentificationFrame::find(tag, LoudnessTag))
+        {
+            tag->removeFrame(oldFrame, true);
+        }
+        tag->addFrame(lkfsFrame.release());
+
+        auto peakFrame = std::make_unique<ID3v2::UserTextIdentificationFrame>();
+        peakFrame->setDescription(SamplePeakTag);
+        peakFrame->setText(std::to_string(mPeak));
+        if(auto oldFrame = ID3v2::UserTextIdentificationFrame::find(tag, SamplePeakTag))
+        {
+            tag->removeFrame(oldFrame, true);
+        }
+        tag->addFrame(peakFrame.release());
+
+        mp3File->save();
+    }
 }

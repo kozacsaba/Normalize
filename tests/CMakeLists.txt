@@ -1,6 +1,6 @@
 # Tests ########################################################################
 
-message(STATUS "### Configuring Tests ###")
+message(STATUS ">>>>> Configuring Tests")
 
 project(TestBench)
 
@@ -30,3 +30,5 @@ message(STATUS "Test Audio Directory is set to ${TEST_AUDIO_DIR}")
 
 include(GoogleTest)
 gtest_discover_tests(${PROJECT_NAME})
+
+message(STATUS "<<<<< Configured Tests successfully")
