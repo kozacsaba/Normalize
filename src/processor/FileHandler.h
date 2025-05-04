@@ -13,6 +13,8 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 
 #include "LKFSProcessor.h"
+#include "id3v2tag.h"
+#include "wav/infotag.h"
 
 namespace norm
 {
@@ -22,6 +24,9 @@ class FileHandler
 private:
     inline static const char LoudnessTag[] = "LKFS";
     inline static const char SamplePeakTag[] = "PEAK";
+
+    using RIFFTag = TagLib::RIFF::Info::Tag;
+    using ID3Tag = TagLib::ID3v2::Tag;
 
     enum class Format
     {
@@ -72,6 +77,11 @@ public:
 private:
     bool readNextBlock(juce::AudioBuffer<float>* buffer);
     void setFormat(juce::String format);
+    
+    void parseID3v2Tag(ID3Tag* tag);
+    void deepCopyRIFF(RIFFTag* source, RIFFTag* target);
+    void deepCopyID3v2(ID3Tag* source, ID3Tag* tagret);
+
     void writeFormatMP3(float gain_dB);
     void writeFormatWav(float gain_dB);
 

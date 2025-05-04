@@ -5,12 +5,14 @@
 #include "wav/wavfile.h"
 #include "mpegfile.h"
 #include "textidentificationframe.h"
+#include "tfilestream.h"
 
 using namespace norm;
 
 FileHandler::FileHandler(juce::File file)
     : mFile(file)
     , mFormat(Format::unknown)
+    , fMeasured(false)
 {
     mAudioFormatManager.registerBasicFormats();
 
@@ -28,34 +30,28 @@ FileHandler::FileHandler(juce::File file)
         mSamplesPerBlock
     );
 
-    TagLib::ID3v2::Tag* tag;
     switch (mFormat)
     {
     case Format::wav:
-        tag = TagLib::RIFF::WAV::File(
-            mFile.getFullPathName().toStdString().c_str()).ID3v2Tag();
+    {
+        TagLib::RIFF::WAV::File wavFile(
+            mFile.getFullPathName().toStdString().c_str());
+        ID3Tag* tag = wavFile.ID3v2Tag();
+        parseID3v2Tag(tag);
         break;
+    }
     case Format::mp3:
-        tag = TagLib::MPEG::File(
-            mFile.getFullPathName().toStdString().c_str()).ID3v2Tag();
+    {
+        TagLib::MPEG::File mp3File(
+            mFile.getFullPathName().toStdString().c_str());
+        ID3Tag* tag = mp3File.ID3v2Tag();
+        parseID3v2Tag(tag);
         break;
+    }
     case Format::unknown:
     default:
         exc::FileHandler::get::format_not_supported();
     }
-
-    auto lkfs = TagLib::ID3v2::UserTextIdentificationFrame::find(tag, LoudnessTag);
-    auto peak = TagLib::ID3v2::UserTextIdentificationFrame::find(tag, SamplePeakTag);
-    if(!lkfs || !peak) return;
-
-    const TagLib::StringList& lkfsFields = lkfs->fieldList();
-    const TagLib::StringList& peakFields = peak->fieldList();
-
-    if(lkfsFields.isEmpty() || peakFields.isEmpty()) return;
-
-    mLoudness = std::stof(lkfsFields.front().to8Bit());
-    mPeak = std::stof(peakFields.front().to8Bit());
-    fMeasured = true;
 }
 FileHandler::~FileHandler() 
 {
@@ -175,18 +171,71 @@ void FileHandler::setFormat(juce::String format)
     }
 }
 
+void FileHandler::parseID3v2Tag(ID3Tag* tag)
+{
+    auto lkfs = TagLib::ID3v2::UserTextIdentificationFrame::find(tag, LoudnessTag);
+    auto peak = TagLib::ID3v2::UserTextIdentificationFrame::find(tag, SamplePeakTag);
+    if(!lkfs || !peak) return;
+
+    const TagLib::StringList& lkfsFields = lkfs->fieldList();
+    const TagLib::StringList& peakFields = peak->fieldList();
+
+    if(lkfsFields.isEmpty() || peakFields.isEmpty()) return;
+
+    const std::string lkfsStr = lkfsFields[1].to8Bit();
+    const std::string peakStr = peakFields[1].to8Bit();
+
+    mLoudness = std::stof(lkfsStr);
+    mPeak = std::stof(peakStr);
+    fMeasured = true;
+}
+void FileHandler::deepCopyRIFF(RIFFTag* source, RIFFTag* target)
+{
+    const auto& flm = source->fieldListMap();
+    for(auto& field : flm)
+    {
+        target->setFieldText(field.first, field.second);
+    }
+}
+void FileHandler::deepCopyID3v2(ID3Tag* source, ID3Tag* target)
+{
+    while(!target->frameListMap().isEmpty())
+    {
+        target->removeFrames(
+            target->frameListMap().begin()->first
+        );
+    }
+
+    auto* tagHeader = source->header();
+    auto& fl = source->frameList();
+    for(auto* frame : fl)
+    {
+        target->addFrame(TagLib::ID3v2::FrameFactory::instance()->createFrame(
+            frame->render(), tagHeader));
+    }
+}
+
 void FileHandler::writeFormatWav(float gain_dB)
 {
     // save metadata ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    std::unique_ptr<RIFFTag> riffData = nullptr;
+    std::unique_ptr<ID3Tag> id3v2Data = nullptr;
+
     auto wavFile = std::make_unique<TagLib::RIFF::WAV::File>(
         mFile.getFullPathName().toStdString().c_str());
 
-    auto riffData = std::unique_ptr<TagLib::RIFF::Info::Tag>();
-    TagLib::Tag::duplicate(wavFile->InfoTag(), riffData.get());
+    if(wavFile->hasInfoTag())
+    {
+        riffData = std::make_unique<RIFFTag>();
+        deepCopyRIFF(wavFile->InfoTag(), riffData.get());
+    }
 
-    auto id3v2Data = std::unique_ptr<TagLib::ID3v2::Tag>();
-    TagLib::Tag::duplicate(wavFile->ID3v2Tag(), id3v2Data.get());
+    if(wavFile->hasID3v2Tag())
+    {
+        id3v2Data = std::make_unique<ID3Tag>();
+        deepCopyID3v2(wavFile->ID3v2Tag(), id3v2Data.get());
+    }
 
     wavFile.reset();
 
@@ -198,7 +247,7 @@ void FileHandler::writeFormatWav(float gain_dB)
     auto format = std::make_unique<juce::WavAudioFormat>();
     mFile.deleteFile();
 
-    // will be deleted by the writer if created successfully
+    // will be owned by the writer if created successfully
     auto* outStream = new juce::FileOutputStream(mFile);
 
     auto writer = std::unique_ptr<juce::AudioFormatWriter>(
@@ -225,13 +274,19 @@ void FileHandler::writeFormatWav(float gain_dB)
         delete outStream;
         exc::FileHandler::get::no_writer_for_File();
     }
+    writer = nullptr;
 
     // restore metadata ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    auto fileStream = std::make_unique<TagLib::FileStream>(
+        mFile.getFullPathName().toStdString().c_str(), false);
     wavFile = std::make_unique<TagLib::RIFF::WAV::File>(
-        mFile.getFullPathName().toStdString().c_str());
-    TagLib::Tag::duplicate(riffData.get(), wavFile->InfoTag());
-    TagLib::Tag::duplicate(id3v2Data.get(), wavFile->ID3v2Tag());
+        fileStream.get());
+    
+    if(riffData)
+        deepCopyRIFF(riffData.get(), wavFile->InfoTag());
+    if(id3v2Data)
+        deepCopyID3v2(id3v2Data.get(), wavFile->ID3v2Tag());
 
     // write custom tags ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -239,9 +294,9 @@ void FileHandler::writeFormatWav(float gain_dB)
     {
         using namespace TagLib;
 
-        ID3v2::Tag* tag = wavFile->ID3v2Tag();
+        ID3Tag* tag = wavFile->ID3v2Tag();
 
-        auto lkfsFrame = std::unique_ptr<ID3v2::UserTextIdentificationFrame>();
+        auto lkfsFrame = std::make_unique<ID3v2::UserTextIdentificationFrame>();
         lkfsFrame->setDescription(LoudnessTag);
         lkfsFrame->setText(std::to_string(mLoudness));
         if(auto oldFrame = ID3v2::UserTextIdentificationFrame::find(tag, LoudnessTag))
@@ -250,7 +305,7 @@ void FileHandler::writeFormatWav(float gain_dB)
         }
         tag->addFrame(lkfsFrame.release());
 
-        auto peakFrame = std::unique_ptr<ID3v2::UserTextIdentificationFrame>();
+        auto peakFrame = std::make_unique<ID3v2::UserTextIdentificationFrame>();
         peakFrame->setDescription(SamplePeakTag);
         peakFrame->setText(std::to_string(mPeak));
         if(auto oldFrame = ID3v2::UserTextIdentificationFrame::find(tag, SamplePeakTag))
@@ -281,9 +336,9 @@ void FileHandler::writeFormatMP3(float gain_dB)
 
         auto mp3File = std::make_unique<MPEG::File>(
             mFile.getFullPathName().toStdString().c_str());
-        ID3v2::Tag* tag = mp3File->ID3v2Tag();
+        ID3Tag* tag = mp3File->ID3v2Tag();
 
-        auto lkfsFrame = std::unique_ptr<ID3v2::UserTextIdentificationFrame>();
+        auto lkfsFrame = std::make_unique<ID3v2::UserTextIdentificationFrame>();
         lkfsFrame->setDescription(LoudnessTag);
         lkfsFrame->setText(std::to_string(mLoudness));
         if(auto oldFrame = ID3v2::UserTextIdentificationFrame::find(tag, LoudnessTag))
@@ -292,7 +347,7 @@ void FileHandler::writeFormatMP3(float gain_dB)
         }
         tag->addFrame(lkfsFrame.release());
 
-        auto peakFrame = std::unique_ptr<ID3v2::UserTextIdentificationFrame>();
+        auto peakFrame = std::make_unique<ID3v2::UserTextIdentificationFrame>();
         peakFrame->setDescription(SamplePeakTag);
         peakFrame->setText(std::to_string(mPeak));
         if(auto oldFrame = ID3v2::UserTextIdentificationFrame::find(tag, SamplePeakTag))

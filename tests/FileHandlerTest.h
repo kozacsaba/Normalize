@@ -224,3 +224,113 @@ TEST_F(FileHandlerTest, write_mp3_3)
 
 //==============================================================================
 // METADATA TEST
+
+TEST_F(FileHandlerTest, tag_store_wav)
+{
+    auto testfile = workdir.getChildFile("1770-2_Comp_24LKFS_10000Hz_2ch.wav");
+    ASSERT_TRUE(testfile.existsAsFile());
+    const float expected = -24.f;
+
+    auto handler = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(handler);
+
+    handler->loadAudio();
+    handler->measure();
+    handler->writeWithGain();
+    handler = nullptr;
+
+    auto checker = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(checker);
+
+    ASSERT_TRUE(checker->isMeasured());
+    const float cached = checker->getLoudness().value();
+
+    EXPECT_GT(cached, expected - eps);
+    EXPECT_LT(cached, expected + eps);
+}
+
+TEST_F(FileHandlerTest, tag_store_mp3)
+{
+    auto testfile = workdir.getChildFile("Koza - SFX - atmo - wonder (E) - 320kbps.mp3");
+    ASSERT_TRUE(testfile.existsAsFile());
+
+    auto handler = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(handler);
+
+    handler->loadAudio();
+    handler->measure();
+    const float expected = handler->getLoudness().value();
+    handler->writeWithGain();
+    handler = nullptr;
+
+    auto checker = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(checker);
+
+    ASSERT_TRUE(checker->isMeasured());
+    const float cached = checker->getLoudness().value();
+
+    EXPECT_GT(cached, expected - eps);
+    EXPECT_LT(cached, expected + eps);
+}
+
+TEST_F(FileHandlerTest, tag_use_wav)
+{
+    auto testfile = workdir.getChildFile("1770-2 Conf Mono Voice+Music-23LKFS.wav");
+    ASSERT_TRUE(testfile.existsAsFile());
+    const float original = -23.f;
+    const float diff = -6.f;
+
+    auto handler = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(handler);
+    handler->loadAudio();
+    handler->measure();
+    handler->writeWithGain();
+    handler = nullptr;
+
+    auto amp = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(amp);
+    ASSERT_TRUE(amp->isMeasured());
+    amp->loadAudio();
+    amp->writeWithGain(diff);
+    amp = nullptr;
+
+    auto checker = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(checker);
+    checker->loadAudio();
+    checker->measure();
+    const float modified = checker->getLoudness().value();
+
+    EXPECT_GT(modified, original + diff - eps);
+    EXPECT_LT(modified, original + diff + eps);
+}
+
+TEST_F(FileHandlerTest, tag_use_mp3)
+{
+    auto testfile = workdir.getChildFile("Koza - Drumloop - leave me - 192kbps.mp3");
+    ASSERT_TRUE(testfile.existsAsFile());
+    const float diff = -9.f;
+
+    auto handler = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(handler);
+    handler->loadAudio();
+    handler->measure();
+    const float original = handler->getLoudness().value();
+    handler->writeWithGain();
+    handler = nullptr;
+
+    auto amp = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(amp);
+    ASSERT_TRUE(amp->isMeasured());
+    amp->loadAudio();
+    amp->writeWithGain(diff);
+    amp = nullptr;
+
+    auto checker = std::make_unique<norm::FileHandler>(testfile);
+    ASSERT_TRUE(checker);
+    checker->loadAudio();
+    checker->measure();
+    const float modified = checker->getLoudness().value();
+
+    EXPECT_GT(modified, original + diff - eps - mp3delta);
+    EXPECT_LT(modified, original + diff + eps + mp3delta);
+}
